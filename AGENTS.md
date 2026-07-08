@@ -65,9 +65,6 @@ order (each has a VERIFY step):
   NOT connect — the known blocker; issue tokens via `InsecureTokenProvider` (dev) or a customer
   backend (prod) instead). Do not present these as working.
 
-> `scripts/azure-deploy.ps1` **predates this alignment** (it assumes MCR images + Cosmos and
-> does not build to ACR or use Azure Files). **Use azure/README.md, not that script.**
-
 ---
 
 ## Troubleshooting
