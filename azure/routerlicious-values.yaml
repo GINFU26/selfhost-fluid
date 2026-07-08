@@ -1,0 +1,97 @@
+# Copyright (c) Microsoft Corporation and contributors. All rights reserved.
+# Licensed under the MIT License.
+#
+# Helm value overrides for the routerlicious chart — full-stack on AKS with Redpanda.
+# Merged onto the chart defaults in the FluidFramework repo at
+#   <FLUID_SERVER_DIR>/routerlicious/kubernetes/routerlicious/values.yaml
+#
+# Secrets (tenant key, Cosmos connection string) are PLACEHOLDERs here and injected at
+# deploy time via `helm --set-string` (see azure/README.md). Example:
+#   $key   = az keyvault secret show --vault-name <YOUR_KEYVAULT> -n fluid-tenant-key   --query value -o tsv
+#   $mongo = az keyvault secret show --vault-name <YOUR_KEYVAULT> -n mongo-connstring    --query value -o tsv
+#   helm install fluid "$FLUID_SERVER_DIR/routerlicious/kubernetes/routerlicious" -f routerlicious-values.yaml `
+#     --set-string "alfred.key=$key" --set-string "nexus.key=$key" `
+#     --set-string "alfred.tenants[0].key=$key" --set-string "nexus.tenants[0].key=$key" `
+#     --set-string "riddler.tenants[0].key=$key" --set-string "mongodb.operationsDbEndpoint=$mongo"
+
+image: mcr.microsoft.com/fluidframework/routerlicious/server:latest
+imagePullPolicy: IfNotPresent
+
+alfred:
+  replicas: 1
+  key: PLACEHOLDER_KEY
+  host: alfred.local
+  externalUrl: http://alfred.local
+  api:
+    patchRoot: true
+  tenants:
+    - _id: fluid
+      key: PLACEHOLDER_KEY
+
+nexus:
+  replicas: 1
+  key: PLACEHOLDER_KEY
+  host: nexus.local
+  externalUrl: http://nexus.local
+  tenants:
+    - _id: fluid
+      key: PLACEHOLDER_KEY
+
+deli:
+  replicas: 1
+scriptorium:
+  replicas: 1
+scribe:
+  replicas: 1
+
+riddler:
+  replicas: 1
+  tenants:
+    - _id: fluid
+      key: PLACEHOLDER_KEY
+      storage:
+        url: http://gitrest
+        historianUrl: http://historian
+        internalHistorianUrl: http://historian
+        owner: fluid
+        repository: fluid
+
+storage:
+  storageUrl: http://gitrest
+
+historian:
+  externalUrl: http://historian
+  internalUrl: http://historian
+
+mongodb:
+  operationsDbEndpoint: PLACEHOLDER_MONGO
+  directConnection: false
+
+# Broker: point the rdkafka orderer at Redpanda (deployed by azure/redpanda.yaml) and
+# blank ZooKeeper — Redpanda needs none.
+kafka:
+  url: redpanda:9092
+
+zookeeper:
+  url: ""
+
+redis:
+  url: redis
+  port: 6379
+  tls: false
+  password: ""
+redis2:
+  url: redis
+  port: 6379
+  tls: false
+  password: ""
+redisForThrottling:
+  url: redis
+  port: 6379
+  tls: false
+  password: ""
+redisForTenantCache:
+  url: redis
+  port: 6379
+  tls: false
+  password: ""
