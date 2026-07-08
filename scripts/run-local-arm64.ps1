@@ -18,7 +18,7 @@ if ($LASTEXITCODE -ne 0) { throw "Docker daemon is not running. Start Docker Des
 
 $serverArch = (docker version --format '{{.Server.Arch}}' 2>$null)
 if ($serverArch -ne "arm64") {
-    Write-Warning "Docker server arch is '$serverArch', not arm64. This variant builds native arm64 images; on amd64 use ./scripts/run-local.ps1 (published images, no build)."
+    Write-Warning "Docker server arch is '$serverArch', not arm64. This variant builds native arm64 images; on amd64 use ./scripts/run-local.ps1 (also builds from source)."
 }
 
 # --- Resolve the FluidFramework source (build context root) ------------------

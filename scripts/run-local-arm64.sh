@@ -16,7 +16,7 @@ docker info >/dev/null 2>&1 || { echo "ERROR: Docker daemon is not running."; ex
 ARCH="$(docker version --format '{{.Server.Arch}}' 2>/dev/null || true)"
 if [ "$ARCH" != "arm64" ]; then
   echo "WARNING: Docker server arch is '$ARCH', not arm64. This variant builds native arm64"
-  echo "         images; on amd64 use ./scripts/run-local.sh (published images, no build)."
+  echo "         images; on amd64 use ./scripts/run-local.sh (also builds from source)."
 fi
 
 # --- Resolve the FluidFramework source (build context root) ------------------

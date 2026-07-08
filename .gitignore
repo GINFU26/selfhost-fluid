@@ -5,7 +5,7 @@
 # Node
 node_modules/
 
-# Fetched FluidFramework source (arm64 build context, cloned on demand)
+# Fetched FluidFramework source
 .fluidframework/
 
 # Logs
