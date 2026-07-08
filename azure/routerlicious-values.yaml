@@ -1,20 +1,20 @@
-# Copyright (c) Microsoft Corporation and contributors. All rights reserved.
-# Licensed under the MIT License.
+# Helm values for the routerlicious chart, full-stack on AKS.
+# Replace <ACR> with your registry login server. The image is built from source and pushed
+# to ACR (see README "Phase 0"), NOT pulled from MCR.
 #
-# Helm value overrides for the routerlicious chart — full-stack on AKS with Redpanda.
-# Merged onto the chart defaults in the FluidFramework repo at
-#   <FLUID_SERVER_DIR>/routerlicious/kubernetes/routerlicious/values.yaml
+# The tenant key (PLACEHOLDER_KEY) is injected at install time via --set-string -- never
+# commit a real key:
+#   key=$(openssl rand -hex 32)
+#   helm install fluid "<FLUID>/server/routerlicious/kubernetes/routerlicious" \
+#     -f azure/routerlicious-values.yaml \
+#     --set-string "alfred.key=$key"  --set-string "nexus.key=$key" \
+#     --set-string "alfred.tenants[0].key=$key" --set-string "nexus.tenants[0].key=$key" \
+#     --set-string "riddler.tenants[0].key=$key"
 #
-# Secrets (tenant key, Cosmos connection string) are PLACEHOLDERs here and injected at
-# deploy time via `helm --set-string` (see azure/README.md). Example:
-#   $key   = az keyvault secret show --vault-name <YOUR_KEYVAULT> -n fluid-tenant-key   --query value -o tsv
-#   $mongo = az keyvault secret show --vault-name <YOUR_KEYVAULT> -n mongo-connstring    --query value -o tsv
-#   helm install fluid "$FLUID_SERVER_DIR/routerlicious/kubernetes/routerlicious" -f routerlicious-values.yaml `
-#     --set-string "alfred.key=$key" --set-string "nexus.key=$key" `
-#     --set-string "alfred.tenants[0].key=$key" --set-string "nexus.tenants[0].key=$key" `
-#     --set-string "riddler.tenants[0].key=$key" --set-string "mongodb.operationsDbEndpoint=$mongo"
-
-image: mcr.microsoft.com/fluidframework/routerlicious/server:latest
+# mongodb below points at the in-cluster mongo (backends.yaml). For managed Cosmos DB for
+# MongoDB (vCore) instead, set operationsDbEndpoint to the Cosmos connection string and
+# directConnection: false.
+image: <ACR>.azurecr.io/routerlicious:v1
 imagePullPolicy: IfNotPresent
 
 alfred:
@@ -64,11 +64,9 @@ historian:
   internalUrl: http://historian
 
 mongodb:
-  operationsDbEndpoint: PLACEHOLDER_MONGO
-  directConnection: false
+  operationsDbEndpoint: mongodb://mongo:27017
+  directConnection: true
 
-# Broker: point the rdkafka orderer at Redpanda (deployed by azure/redpanda.yaml) and
-# blank ZooKeeper — Redpanda needs none.
 kafka:
   url: redpanda:9092
 

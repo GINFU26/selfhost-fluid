@@ -1,13 +1,47 @@
-# Copyright (c) Microsoft Corporation and contributors. All rights reserved.
-# Licensed under the MIT License.
+# In-cluster backends for full-stack Routerlicious on AKS.
 #
-# In-cluster backends for full-stack Routerlicious on AKS: redis + gitrest + historian,
-# using the published MCR images and nconf `__` env overrides.
+# Storage choices (what was actually deployed and observed working):
+#   gitrest snapshots -> Azure Files PV (RWX SMB) via the custom StorageClass below.
+#     gitrest has NO Blob backend in OSS (only local-fs / mem / redis), so durable Azure
+#     storage = a filesystem PV. Azure Files is the zero-code managed option; Azure Blob
+#     (AFR's model) would need a new IFileSystemManager adapter.
+#   mongo (ops/metadata) -> in-cluster, on a managed-disk (block) PV. Mongo needs real file
+#     locking, so block storage, not SMB. Managed Cosmos for MongoDB (vCore) is the optional
+#     production alternative (set it in the Helm values instead; directConnection: false).
+#   redis -> in-cluster, NO auth (network-isolated inside the cluster). Azure Cache for Redis
+#     is optional (the gitrest chart's redis config has no tls/password field).
 #
-# The in-cluster redis has NO auth (dev-style), which sidesteps Azure Cache for Redis
-# TLS/password wiring across gitrest's redisFs. For production, replace redis with a
-# managed Azure Cache for Redis and gitrest storage with Azure Blob, and add auth
-# (see azure/README.md).
+# Replace <ACR> with your registry login server (e.g. myregistry.azurecr.io). Images are
+# built from source and pushed to ACR (see README "Phase 0"), NOT pulled from MCR.
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: azurefile-gitrest
+provisioner: file.csi.azure.com
+allowVolumeExpansion: true
+reclaimPolicy: Retain
+parameters:
+  skuName: Standard_LRS
+mountOptions:
+  - dir_mode=0777
+  - file_mode=0777
+  - uid=1000
+  - gid=1000
+  - mfsymlinks
+  - cache=strict
+  - actimeo=30
+  - nobrl
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gitrest-data
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: azurefile-gitrest
+  resources:
+    requests: { storage: 16Gi }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -30,8 +64,7 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-metadata:
-  name: redis
+metadata: { name: redis }
 spec:
   selector: { app: redis }
   ports: [{ port: 6379, targetPort: 6379 }]
@@ -39,12 +72,44 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: gitrest-data
+  name: mongo-data
 spec:
   accessModes: [ReadWriteOnce]
   storageClassName: managed-csi
   resources:
-    requests: { storage: 8Gi }
+    requests: { storage: 16Gi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo
+  labels: { app: mongo }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: mongo } }
+  template:
+    metadata: { labels: { app: mongo } }
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:4
+          ports: [{ containerPort: 27017 }]
+          volumeMounts:
+            - { name: data, mountPath: /data/db }
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "1", memory: "2Gi" }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: mongo-data }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: mongo }
+spec:
+  selector: { app: mongo }
+  ports: [{ port: 27017, targetPort: 27017 }]
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -62,7 +127,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: gitrest
-          image: mcr.microsoft.com/fluidframework/routerlicious/gitrest:latest
+          image: <ACR>.azurecr.io/gitrest:v1
           ports: [{ containerPort: 3000 }]
           env:
             - { name: IS_FLUID_SERVER, value: "true" }
@@ -77,8 +142,7 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-metadata:
-  name: gitrest
+metadata: { name: gitrest }
 spec:
   selector: { app: gitrest }
   ports: [{ port: 80, targetPort: 3000 }]
@@ -96,13 +160,11 @@ spec:
     spec:
       containers:
         - name: historian
-          image: mcr.microsoft.com/fluidframework/routerlicious/historian:latest
+          image: <ACR>.azurecr.io/historian:v1
           ports: [{ containerPort: 3000 }]
           env:
             - { name: IS_FLUID_SERVER, value: "true" }
             - { name: NODE_ENV, value: "production" }
-            # "fluid-riddler" = "<helm-release>-riddler"; install the routerlicious
-            # chart with release name "fluid" so this DNS name resolves.
             - { name: riddler, value: "http://fluid-riddler" }
             - { name: storageUrl, value: "http://gitrest" }
             - { name: redis__host, value: "redis" }
@@ -112,8 +174,7 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-metadata:
-  name: historian
+metadata: { name: historian }
 spec:
   selector: { app: historian }
   ports: [{ port: 80, targetPort: 3000 }]
