@@ -64,6 +64,10 @@ in `--mode=dev-container`. **Full diagram + notes: [ARCHITECTURE.md §1](./ARCHI
 
 ## 3. Deploy
 
+> A deterministic, step-by-step runbook for a **person or an AI agent** (local **and** Azure,
+> with VERIFY gates) is in [AGENTS.md](./AGENTS.md); the Azure phase detail is in
+> [azure/README.md](./azure/README.md).
+
 ### Local — one command (validated)
 
 ```powershell

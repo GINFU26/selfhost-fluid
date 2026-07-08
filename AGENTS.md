@@ -49,17 +49,24 @@ main-derived compose does not match them. Building keeps images and compose in l
 
 ## Phase 2 — Azure (AKS)
 
-**Goal:** the same stack on Azure with managed Cosmos for MongoDB, a Redpanda broker,
-and a token-minting Azure Function.
+**Goal:** the same full stack on AKS, with images **built from source and pushed to ACR**
+(the MCR images don't work), Redpanda as the broker, **in-cluster Mongo + Redis**, and gitrest
+snapshots on an **Azure Files PV**. Managed Cosmos / Azure Cache / a token Azure Function are
+optional or open (see the runbook's hardening section).
 
-**Runbook:** follow [azure/README.md](./azure/README.md) phase by phase, or run
-`./scripts/azure-deploy.ps1` (automates the validated phases 1–5). Each phase there has
-its own VERIFY step.
+**Runbook — [azure/README.md](./azure/README.md) is authoritative.** Follow its phases in
+order (each has a VERIFY step):
 
-**Status markers (do not overstate):** phases 1 (AKS), 3 (in-cluster backends + Redpanda),
-4 (Key Vault), 5 (Helm routerlicious) are **[VALIDATED]**. Phase 2 (Cosmos for MongoDB)
-is **[AFR-PROVEN]** but not re-validated here. Phase 6 (**token Azure Function**) is
-**[OPEN]** — the known blocker; do not present it as working. Phase 7 (ingress/TLS) is partial.
+- **Phase 0** build images to ACR (buildx `--build-context root=.`; `az acr build` can't do it).
+- **Phase 1–4 [VALIDATED]:** RG + ACR + AKS; image-pull secret; Redpanda + topics; in-cluster
+  backends (gitrest on an Azure Files PV — the PVC binds RWX).
+- **Phase 5 [PREPARED, not run end-to-end]:** `helm install` the routerlicious services.
+- **Phase 6–7 [OPEN]:** public LB expose + smoke; the client **token Azure Function** (it did
+  NOT connect — the known blocker; issue tokens via `InsecureTokenProvider` (dev) or a customer
+  backend (prod) instead). Do not present these as working.
+
+> `scripts/azure-deploy.ps1` **predates this alignment** (it assumes MCR images + Cosmos and
+> does not build to ACR or use Azure Files). **Use azure/README.md, not that script.**
 
 ---
 
