@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "acrName": {
+      "value": "gentestfrs001"
+    },
+    "acrLocation": {
+      "value": "eastus"
+    },
+    "aksClusterName": {
+      "value": "gen-test-aks-001"
+    },
+    "aksLocation": {
+      "value": "eastus2"
+    },
+    "kubernetesVersion": {
+      "value": "1.35"
+    },
+    "nodeVmSize": {
+      "value": "Standard_D4as_v4"
+    },
+    "nodeCount": {
+      "value": 3
+    },
+    "dnsPrefix": {
+      "value": "gen-test-a-gin-test-001-5a5798"
+    },
+    "sshPublicKey": {
+      "value": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ1nXvH4bu7Uq/mcDFIbH5RSkvN7MpLcLtbyqZWDRRygu5o1nbl+TwRntdW+/xCXvKxQseDeORX2zX1P0Mo1H854nAgeygdXVVuAZTOVqTVOWIYTg9Js8kFFAoJmkY4eYUAC+I+J1DyO2Rns1Hs1EjVbJGScviy+cXqX+kEwp70Rr7x8+eeGyxVfG8G+B6s4TvcAPUtIb4P9D9UuHv++T/kRDEcU4+Jl8aN6e7vX8Xe6EZH58Zgmnzd+eTO0ciHQV1QDmF69eLmnccxPuj2JmQOtutXXL0C+az7q/eTGvZzLnfdkDQsMhbcb/OuBLDwaUCAmIHpbAkD8omaju4Bb/1"
+    }
+  }
+}
