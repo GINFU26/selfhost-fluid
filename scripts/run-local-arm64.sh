@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
-# Copyright (c) Microsoft Corporation and contributors. All rights reserved.
-# Licensed under the MIT License.
-#
 # Native arm64 bring-up: builds the Fluid images from a FluidFramework checkout,
 # starts the redpanda-full stack, waits for health, and runs the smoke test.
 
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE="$ROOT/docker-compose.redpanda.arm64.yml"
+
+# Load the supported source-selection values unless the caller already exported them.
+ENV_FILE="$ROOT/.env"
+[ -f "$ENV_FILE" ] || cp "$ROOT/.env.example" "$ENV_FILE"
+while IFS='=' read -r key value; do
+  value="${value%$'\r'}"
+  case "$key" in
+    FLUID_REPO_DIR|FLUID_REF)
+      if [ -z "${!key+x}" ]; then export "$key=$value"; fi
+      ;;
+  esac
+done < "$ENV_FILE"
 
 # --- Preflight ---------------------------------------------------------------
 command -v docker >/dev/null 2>&1 || { echo "ERROR: Docker is not installed or not on PATH."; exit 1; }
@@ -22,7 +31,13 @@ fi
 # --- Resolve the FluidFramework source (build context root) ------------------
 # Default: shallow-clone FluidFramework from GitHub into ./.fluidframework (gitignored).
 # To reuse an existing checkout, set FLUID_REPO_DIR to its repo root before running.
+explicit_repo=0
 if [ -n "${FLUID_REPO_DIR:-}" ]; then
+  explicit_repo=1
+  case "$FLUID_REPO_DIR" in
+    /*) ;;
+    *) FLUID_REPO_DIR="$ROOT/$FLUID_REPO_DIR" ;;
+  esac
   if [ ! -f "$FLUID_REPO_DIR/server/routerlicious/Dockerfile" ]; then
     echo "ERROR: FLUID_REPO_DIR is set to '$FLUID_REPO_DIR' but it does not look like a FluidFramework repo"
     echo "  (missing server/routerlicious/Dockerfile). Point it at the repo root, or unset it to auto-clone."
@@ -37,23 +52,31 @@ else
     git clone --depth 1 --branch "$REF" https://github.com/microsoft/FluidFramework "$FLUID_REPO_DIR"
   fi
 fi
+
+# Apply FLUID_REF on every run for the helper-managed checkout. Do not mutate a checkout supplied
+# through FLUID_REPO_DIR; its owner selects and reviews that revision.
+if [ "$explicit_repo" -eq 0 ] && [ -n "${FLUID_REF:-}" ]; then
+  if ! git -C "$FLUID_REPO_DIR" diff --quiet || ! git -C "$FLUID_REPO_DIR" diff --cached --quiet; then
+    echo "ERROR: helper-managed FluidFramework checkout has tracked local changes; refusing to switch FLUID_REF."
+    exit 1
+  fi
+  git -C "$FLUID_REPO_DIR" fetch --depth 1 origin "$FLUID_REF"
+  git -C "$FLUID_REPO_DIR" checkout --detach FETCH_HEAD
+fi
 FLUID_REPO_DIR="$(cd "$FLUID_REPO_DIR" && pwd)"
 export FLUID_REPO_DIR
 echo "Building Fluid images from: $FLUID_REPO_DIR"
 
-# --- Generate arm64 Dockerfiles by PATCHING upstream's (nothing vendored, so they
-#     track main automatically): drop the amd64 digest pin + use the arm64 tini. ---
+# --- Generate arm64 Dockerfiles from the CURRENT upstream source on every run:
+#     drop the amd64 digest pin + use the arm64 tini. --------------------------
 for svc in routerlicious historian gitrest; do
   src="$FLUID_REPO_DIR/server/$svc/Dockerfile"
   dst="$FLUID_REPO_DIR/server/$svc/Dockerfile.arm64"
-  if [ -f "$src" ] && [ ! -f "$dst" ]; then
+  if [ -f "$src" ]; then
     sed -e 's/@sha256:[0-9a-f]\{64\}//' -e 's#/tini /tini#/tini-arm64 /tini#' "$src" > "$dst"
     echo "  generated server/$svc/Dockerfile.arm64 (patched from upstream Dockerfile)"
   fi
 done
-
-# --- Ensure .env -------------------------------------------------------------
-[ -f "$ROOT/.env" ] || cp "$ROOT/.env.example" "$ROOT/.env"
 
 # --- Build + up --------------------------------------------------------------
 echo "Building arm64 images and starting the stack..."

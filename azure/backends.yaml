@@ -6,13 +6,17 @@
 #     storage = a filesystem PV. Azure Files is the zero-code managed option; Azure Blob
 #     (AFR's model) would need a new IFileSystemManager adapter.
 #   mongo (ops/metadata) -> in-cluster, on a managed-disk (block) PV. Mongo needs real file
-#     locking, so block storage, not SMB. Managed Cosmos for MongoDB (vCore) is the optional
-#     production alternative (set it in the Helm values instead; directConnection: false).
-#   redis -> in-cluster, NO auth (network-isolated inside the cluster). Azure Cache for Redis
-#     is optional (the gitrest chart's redis config has no tls/password field).
+#     locking, so block storage, not SMB. The historically validated mongo:4 pin below is
+#     single-node, no-auth, and not a current production recommendation. Select and validate a
+#     supported MongoDB-compatible topology for production.
+#   redis -> in-cluster, NO auth, exposed only through a ClusterIP in this reference manifest.
+#     No NetworkPolicy isolation is provided. A managed authenticated/TLS service is an
+#     optional production replacement; wire its settings into the raw gitrest/historian
+#     Deployments and the Routerlicious Helm values.
 #
-# Replace <ACR> with your registry login server (e.g. myregistry.azurecr.io). Images are
-# built from source and pushed to ACR (see README "Phase 0"), NOT pulled from MCR.
+# Replace <ACR> with your ACR resource name (for example, myregistry; do not include
+# .azurecr.io) and <IMAGE_TAG> with the unique immutable release tag created in README
+# Phase 1. Images are built from source and pushed to ACR.
 ---
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -127,7 +131,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: gitrest
-          image: <ACR>.azurecr.io/gitrest:v1
+          image: <ACR>.azurecr.io/gitrest:<IMAGE_TAG>
           ports: [{ containerPort: 3000 }]
           env:
             - { name: IS_FLUID_SERVER, value: "true" }
@@ -160,7 +164,7 @@ spec:
     spec:
       containers:
         - name: historian
-          image: <ACR>.azurecr.io/historian:v1
+          image: <ACR>.azurecr.io/historian:<IMAGE_TAG>
           ports: [{ containerPort: 3000 }]
           env:
             - { name: IS_FLUID_SERVER, value: "true" }

@@ -1,158 +1,369 @@
 # Self-host Fluid Framework — Routerlicious + Redpanda
 
-Run your own [Fluid Framework](https://fluidframework.com) real-time collaboration
-backend — the same **Routerlicious** ordering service behind Azure Fluid Relay (AFR) —
-self-hosted, with the Kafka + ZooKeeper broker replaced by a single **Redpanda** container
-(zero application-code change — Redpanda speaks the Kafka wire protocol).
+**Project owner:** Gin Fu
 
-> **Honesty up front.** The **local** stack is validated end-to-end. The **Azure** path is a
-> work in progress that needs deployment-engineering help, and a couple of pieces don't work
-> yet (Blob storage, the token Azure Function) — [§4](#4-open-items-honest-status) says so.
+## Executive overview
 
----
+This project turns the retirement of Azure Fluid Relay (AFR) into a concrete product and
+engineering recommendation for the remaining third-party Fluid applications that need service
+continuity. The work combined **product ownership with hands-on engineering**: defining the
+customer problem and bounded scope, translating the AFR client experience into technical
+requirements, evaluating architecture options, building and testing the leading candidates,
+and converting the results into a deployable reference solution and receiving-team roadmap.
 
-## What you get
+Four service shapes were evaluated across client behavior, durability, resource footprint,
+operational complexity, and long-term maintainability. The project selected **full
+Routerlicious + Redpanda** as the reference architecture: it retains the mainline Routerlicious
+service topology and selected E2E result while replacing the Kafka broker and ZooKeeper
+coordination service with one Kafka-compatible broker. In the recorded environment, Redpanda
+used approximately **13× less average broker CPU, 33× less peak broker CPU, and 2.2× less
+broker memory** than the stock baseline.
 
-Self-hosting means you run the **whole** Fluid backend and **own its data**:
+Delivered artifacts include source-built local and Azure AKS deployments, persistent operations
+and snapshot storage, deployment automation and runbooks, and a real **Fluid Chat** validation
+covering document creation, realtime two-client sync, cold-load, convergence, and audience
+presence. The productionization handoff covers token issuance, AFR migration, upgrades, backup,
+monitoring, and service ownership.
 
-- **Fluid ordering service** — full Routerlicious (alfred, nexus, deli, scriptorium, scribe, riddler).
-- **Broker** — one **Redpanda** container instead of Kafka + ZooKeeper.
-- **Your storage** — MongoDB (ops/metadata) + git-based snapshots (gitrest/historian) on a filesystem volume. **No Azure Blob dependency** ([§4](#4-open-items-honest-status)).
-- **Your identity** — per-tenant signing keys + JWT tokens; the signing key stays server-side.
+> This README follows the complete project path: **scope → requirements → architecture
+> comparison → decision → implementation → local and Azure validation → customer deployment →
+> migration → maintenance → production handoff**.
 
-> Component-by-component **design and diagrams** — the full-stack shape **and** the slim
-> alternative — live in **[ARCHITECTURE.md](./ARCHITECTURE.md)**. This README stays
-> high-level and focuses on the **choice** and the **deployment**.
+### Repository guide
 
----
-
-## 1. Four service shapes, measured
-
-The **same** full Fluid client e2e suite (`--compatKind=None`, 227 suites / 1132 cases) run
-against four backend shapes on one machine — **identical functional result everywhere**
-(**634 pass / 6 fail / 492 skip**; the 6 are old-version compat tests, unrelated). The
-difference is **cost and operability**:
-
-| Shape | Broker | Containers | e2e | Broker / runtime footprint | Fit |
-| --- | --- | :--: | --- | --- | --- |
-| **Kafka + ZooKeeper** (stock) | Kafka 1.1.1 + ZK (2 svc) | 15 | 634 ✓ (328 s) | broker avg CPU **62%**, peak **333%**, mem **~634 MiB** | production, heavy broker |
-| **Redpanda** (this repo) | Redpanda (1 svc) | 14 | 634 ✓ (346 s) | broker avg CPU **4.9%**, peak **10%**, mem **~289 MiB** | **production — recommended** |
-| **slim** (single process) | in-process | 8 | 634 ✓ (189 s) | slim proc 61% CPU / 339 MiB | dev / prototype |
-| **tinylicious** | in-memory | 1 | 658 ✓ (149 s) | 1 proc, ~421 MiB avg | dev only |
-
-**Redpanda vs Kafka + ZooKeeper** (same test outcome): **~13× less avg CPU, ~33× less peak
-CPU, ~2.2× less memory**, one fewer container. `tinylicious` / `slim` are single-node with
-no broker failover (dev/prototype); `Kafka + ZooKeeper` is production but the JVM broker is
-heavy.
+| Need | Go to |
+| --- | --- |
+| Detailed service topology, data flow, and slim alternative | [ARCHITECTURE.md](./ARCHITECTURE.md) |
+| Recorded tests, provenance, failures, and evidence boundaries | [VALIDATION.md](./VALIDATION.md) |
+| Local deployment with ordered VERIFY gates | [AGENTS.md](./AGENTS.md) |
+| Azure deployment commands, verification, and cleanup | [azure/README.md](./azure/README.md) |
+| Final team decisions and production acceptance criteria | [HANDOFF.md](./HANDOFF.md) |
+| Token prototype and production identity boundary | [token-function/README.md](./token-function/README.md) |
 
 ---
 
-## 2. Recommended: full Routerlicious + Redpanda
+## 1. Final delivered solution
 
-The only shape that is **production-grade** (broker durability + horizontal scale), **cheap**
-(a fraction of the Kafka+ZK broker cost), and **on the mainline code path** (no fork to
-maintain). This repo deploys exactly this.
+### 1.1 Architecture overview
 
-**How it works (brief):** a client's op goes to **alfred** (REST) or **nexus** (websocket),
-which *produce* it to Redpanda **`rawdeltas`** → **deli** assigns sequence numbers →
-**`deltas`** → **scriptorium** (ops to Mongo) / **scribe** (snapshots via historian/gitrest)
-/ broadcaster → **Redis** fan-out → back to clients over nexus. One Redpanda container
-replaces Kafka + ZooKeeper, connects unchanged (Kafka wire protocol), and auto-creates topics
-in `--mode=dev-container`. **Full diagram + notes: [ARCHITECTURE.md §1](./ARCHITECTURE.md).**
+The final reference architecture keeps the full Routerlicious service topology and replaces
+the Kafka broker and ZooKeeper coordination service with Redpanda through Routerlicious's
+existing Kafka-protocol integration.
+
+```mermaid
+flowchart LR
+    Client["Fluid clients"]
+    Token["Customer token backend"]
+
+    subgraph Service["Full Routerlicious"]
+        Gateway["alfred + nexus<br/>REST and realtime sessions"]
+        Ordering["deli<br/>Operation sequencing"]
+        Processing["scriptorium + scribe<br/>Persistence processing"]
+    end
+
+    Broker["Redpanda<br/>Kafka-compatible broker"]
+    Redis["Redis<br/>Realtime delivery"]
+    Mongo[("MongoDB<br/>Operations and metadata")]
+    Snapshots[("historian + gitrest<br/>Snapshots on local volume / Azure Files")]
+
+    Client -->|Authenticate| Token
+    Token -->|JWT| Client
+    Client <--> Gateway
+    Gateway --> Broker --> Ordering --> Processing
+    Processing --> Mongo
+    Processing --> Snapshots
+    Ordering --> Redis --> Gateway
+```
+
+Fluid clients authenticate through a customer token backend and connect to alfred and nexus.
+Redpanda carries operations through the Routerlicious ordering path; MongoDB persists operations
+and metadata; historian/gitrest persists snapshots; and Redis carries sequenced operations back
+to connected clients. Detailed service boundaries, topic flow, and component responsibilities
+are documented in [ARCHITECTURE.md](./ARCHITECTURE.md).
+
+### 1.2 Complete lifecycle solution
+
+| Lifecycle area | Final solution | Delivery state |
+| --- | --- | --- |
+| **Fluid service** | Full Routerlicious with Redpanda as the Kafka-compatible broker | Implemented and validated locally and on AKS |
+| **Operations and metadata** | MongoDB-backed document records, operations, and checkpoints | Implemented with persistent storage |
+| **Customer-owned durable storage** | `IFileSystemManager` provides the snapshot-storage contract. The validated Azure implementation uses Azure Files; Azure Blob is the default bring-your-own-storage example, and customers can connect another preferred backend through a compatible implementation | Azure Files implemented and exercised through cold-load; Blob and other custom adapters not delivered |
+| **Token and identity** | Customer backend authenticates users, authorizes document access, and issues short-lived Routerlicious JWTs | Development token path validated; production token service required |
+| **Local deployment** | Source-built Docker Compose with amd64 and arm64 entry points | Implemented with health and smoke verification |
+| **Azure deployment** | ACR + AKS + Helm, managed-disk PVCs, Azure Files, and explicit service endpoints | Implemented and validated with Fluid Chat |
+| **AFR migration** | Read-only freeze, latest-state recreation, validation, and controlled cutover | Core concept exercised; production tooling required |
+| **Maintenance** | Pin, build, test, stage, deploy, monitor, and roll back; back up durable stores | Operating model and receiving-team responsibilities defined |
+
+Customers control the durable state through the pluggable `IFileSystemManager` contract. The
+validated zero-code Azure path uses Azure Files. Azure Blob is the default bring-your-own-storage
+example; Blob or another preferred backend requires a compatible adapter and production validation
+for correctness, concurrency, recovery, backup/restore, and lifecycle behavior.
+
+### 1.3 Delivered artifacts
+
+This repository contains the local Compose stacks, source-build automation, smoke tests, Azure
+manifests, Routerlicious Helm values, architecture and validation records, and phase-by-phase
+operator runbooks.
 
 ---
 
-## 3. Deploy
+## 2. Scope and requirements
 
-> A deterministic, step-by-step runbook for a **person or an AI agent** (local **and** Azure,
-> with VERIFY gates) is in [AGENTS.md](./AGENTS.md); the Azure phase detail is in
-> [azure/README.md](./azure/README.md).
+AFR is being retired while a limited set of third-party applications still depends on it.
+This project is a **supporting continuity bridge** for that audience, not a new general-purpose
+platform or a recreation of every managed-service capability.
 
-### Local — one command (validated)
+Applications rely on Fluid for two connected outcomes: **real-time synchronization and durable
+data**. The self-host path therefore had to account for the AFR capabilities visible to a Fluid
+client and for the operational responsibilities that move to the receiving team:
+
+- **Collaboration:** connect, create/load, operation ordering, realtime updates, signals,
+  audience, and presence.
+- **Persistence:** document metadata, sequenced operations, checkpoints, summaries/snapshots,
+  and later cold-load.
+- **Access:** tenant, document, user, scopes, signing-key custody, and authorization policy.
+- **Compatibility and identity:** supported Fluid clients and document-reference mapping.
+- **Deployment and operations:** customer/team-operated infrastructure, health, recovery,
+  upgrades, security response, backup/restore, and incidents.
+- **Migration:** a defined way to move durable state and manage the cutover seam.
+
+---
+
+## 3. Architecture comparison and decision
+
+### 3.1 Options evaluated
+
+- **Stock Routerlicious with Kafka + ZooKeeper:** the full reference topology, but with the
+  heaviest broker and coordination footprint in the comparison.
+- **Full Routerlicious with Redpanda:** the same full service shape using one Kafka-compatible
+  broker and no custom ordering implementation.
+- **Slim Routerlicious:** a single-process assembly using in-process queues; efficient for
+  development and prototypes but a different operational and maintenance path.
+- **Tinylicious:** the simplest development server and fastest startup path, but not selected
+  as the customer/team-operated baseline.
+
+### 3.2 Recorded comparison
+
+The Fluid client E2E results recorded against all four shapes are summarized below.
+
+| Shape | Containers | Recorded E2E | Broker / runtime observation | Fit |
+| --- | :--: | --- | --- | --- |
+| Kafka + ZooKeeper | 15 | 634 pass / 6 fail / 492 skip (328 s) | broker avg CPU 62%, peak 333%, ~634 MiB | Full baseline; heavy broker tier |
+| **Full + Redpanda** | 14 | 634 pass / 6 fail / 492 skip (346 s) | broker avg CPU 4.9%, peak 10%, ~289 MiB | **Selected reference** |
+| Slim | 8 | 634 pass / 6 fail / 492 skip (189 s) | slim process 61% CPU / 339 MiB | Development / prototype |
+| Tinylicious | 1 | 658 pass (149 s) | one process, ~421 MiB average | Development only |
+
+For the same recorded full-suite result, Redpanda used approximately **13× less average broker
+CPU, 33× less peak broker CPU, 2.2× less broker memory, and one fewer container** than Kafka +
+ZooKeeper. These are comparative engineering observations from the recorded development
+environment, not production-capacity figures. Full provenance is in
+[VALIDATION.md](./VALIDATION.md).
+
+### 3.3 Decision
+
+**Full Routerlicious + Redpanda** was selected because the continuity requirement was larger than
+starting a Fluid-compatible server. The service needed an ordering path that could survive beyond
+one application process without restoring Kafka and ZooKeeper's recorded cost.
+
+The decision combined five findings:
+
+1. **The broker isolates ordering from one process.** Full Routerlicious separates client gateways,
+  sequencing, operation persistence, summaries, and broadcast through the `rawdeltas` and `deltas`
+  streams. Redpanda preserves this architecture through Routerlicious's existing Kafka-protocol
+  integration rather than introducing a new ordering implementation.
+2. **Removing the broker changes the failure model.** Slim and Tinylicious replace those streams
+  with in-memory queues and in-process pub/sub. If that process fails, the active ordering session
+  has no broker log or second orderer to continue from; clients must reconnect and the service must
+  reload persisted state. Slim restores through its Mongo-backed path; Tinylicious uses its
+  configured LevelDB/local-storage path. Neither provides seamless broker-style failover or
+  single-document redundancy.
+3. **The broker preserves a scale-out path.** Full can partition documents across ordering workers
+  and deploy gateways, sequencing, persistence, and broadcast independently. A brokerless replica
+  model instead requires document-to-replica sticky routing so one process remains the sequencer for
+  each document, leaving that document bounded by a single process and failure domain.
+4. **Redpanda reduced broker-tier complexity while retaining the full topology.** The recorded
+  comparison above shows the E2E and resource trade-off against Kafka + ZooKeeper.
+5. **Full + Redpanda was the smaller structural change.** It keeps the existing Routerlicious service
+  shape and swaps one Kafka-compatible component. Slim and Tinylicious proved that brokerless
+  collaboration can work with the single-process ordering and recovery model above. They remain
+  useful when minimum footprint matters more than broker-backed recovery and scale-out.
+
+---
+
+## 4. What was implemented and validated
+
+### 4.1 Local reference deployment
+
+The project delivered source-built amd64 and arm64 Compose paths containing full Routerlicious,
+Redpanda, MongoDB, Redis, historian, gitrest, riddler, proxying, health checks, and persistent
+MongoDB/snapshot volumes. PowerShell and bash entry points fetch or reuse FluidFramework source,
+build the images, start the stack, wait for health, and run smoke verification.
+
+Local evidence included service health, HTTP smoke checks, the Fluid client E2E suite, and the
+four-shape resource comparison. This demonstrated that the Redpanda substitution retained the
+selected suite result and that the complete exercised collaboration pipeline ran on the local
+self-host stack.
+
+### 4.2 Azure reference deployment
+
+The same architecture was deployed to Azure using source-built images in ACR, full
+Routerlicious on AKS, PVC-backed Redpanda, persistent MongoDB, in-cluster Redis, and
+historian/gitrest snapshots on Azure Files. The final manifests explicitly configure the broker
+PVC, while the Azure runbook explicitly bootstraps the broker topics. The Helm values and service
+exposure provide the alfred, nexus, and historian client paths.
+
+### 4.3 Fluid Chat validation
+
+A real Fluid Chat application running locally connected to the Azure-hosted deployment and
+completed the exercised client lifecycle:
+
+1. connected to alfred, nexus, and historian;
+2. created and attached a Fluid document;
+3. opened the existing document in a second client;
+4. exchanged realtime operations between clients;
+5. cold-loaded persisted state and converged to the same value; and
+6. reported both clients in the audience.
+
+The Redpanda restart check also retained both topics and their eight-partition / replication-
+factor-1 configuration. Together, the recorded results demonstrate that full Routerlicious can
+run as a self-host service, Redpanda can satisfy the exercised Kafka-protocol path, real clients
+can collaborate through the AKS deployment, and persisted state can initialize a second client.
+The complete evidence matrix is in [VALIDATION.md](./VALIDATION.md).
+
+---
+
+## 5. Customer self-host adoption guide
+
+This section describes how a third-party team moves an existing Fluid application from a managed
+relay dependency to a service it operates. The scripts and Azure runbook deploy the infrastructure;
+the customer adoption path also includes identity, application configuration, data migration,
+validation with the customer's own application, and ongoing ownership.
+
+### 5.1 Evaluate the reference locally
+
+**Prerequisites:** Docker, git, a running Docker daemon, and free host ports. From the repository
+root, run the script matching the host architecture:
 
 ```powershell
-./scripts/run-local.ps1          # amd64   (PowerShell)
-./scripts/run-local-arm64.ps1    # arm64   (Apple Silicon / Windows-on-ARM)
+./scripts/run-local.ps1          # amd64 PowerShell
+./scripts/run-local-arm64.ps1    # arm64 PowerShell
 ```
 
 ```bash
-./scripts/run-local.sh           # amd64   (bash)
-./scripts/run-local-arm64.sh     # arm64
+./scripts/run-local.sh           # amd64 bash
+./scripts/run-local-arm64.sh     # arm64 bash
 ```
 
-The helper shallow-clones FluidFramework `main` into `./.fluidframework`, builds the images
-**from source**, starts the stack, waits for health, and runs the smoke test (prints
-**`SMOKE PASS`**). Endpoints: REST+ws `:3003`, historian `:3001`, riddler `:5000`; dev tenant
-`fluid`. Set `FLUID_REPO_DIR` to reuse a checkout. Stop with
-`docker compose -f docker-compose.redpanda.yml down [-v]`.
+The script builds from FluidFramework source, starts the stack, waits for health, and finishes
+with `SMOKE PASS`. Set `FLUID_REPO_DIR` to reuse an existing checkout. The primary client
+endpoint is `http://127.0.0.1:3003`, historian is on port `3001`, and the default development
+tenant is `fluid`.
 
-> **Why build from source?** The published MCR images lag `main` (they predate the nexus
-> split and the `/healthz/startup` route), so they don't match this compose.
-
-**Functional validation** — point the client e2e suite at the running stack (how the
-634-pass number was produced): from a FluidFramework checkout, compile the e2e package once,
-then from `packages/test/test-end-to-end-tests`:
+To repeat the selected client E2E suite from a built FluidFramework checkout:
 
 ```bash
-pnpm exec mocha --driver=r11s --r11sEndpointName=docker --timeout=30s --compatKind=None
-# quick subset: add  --grep "SharedDirectory"   (44 tests through the full pipeline)
+cd packages/test/test-end-to-end-tests
+pnpm run test:realsvc:r11s:docker -- --compatKind=None
 ```
 
-(`--compatKind=None` is required. Windows: if `localhost:3003` hangs but `127.0.0.1:3003`
-works, add `NODE_OPTIONS=--dns-result-order=ipv4first`.)
+Stop while retaining local MongoDB and snapshot volumes with
+`docker compose -f <compose-file> down`; add `-v` to delete those volumes. Use
+`docker-compose.redpanda.yml` on amd64 and `docker-compose.redpanda.arm64.yml` on arm64. See
+[AGENTS.md](./AGENTS.md) for all VERIFY gates and troubleshooting.
 
-### Azure (AKS) — in progress
+### 5.2 Adopt the service for a third-party application
 
-Cluster + in-cluster backends (Redpanda + topics, Redis, Mongo, gitrest, historian) come up,
-the Routerlicious services install via Helm, and **durable snapshot storage on an Azure Files
-PV** works. **Not done:** a single scripted end-to-end deploy and the token layer. Treat
-**[azure/README.md](./azure/README.md)** as a **runbook to harden, not a product** — this is
-where deployment-engineering help is needed.
+Follow this customer journey in order:
 
-Images build from source and push to ACR with buildx (the server Dockerfiles need a named
-`root` build context that `az acr build` can't supply):
+1. **Confirm the application contract** — record the Fluid SDK versions in use, required client
+  capabilities, tenant/document model, expected session shape, region, and data-residency needs.
+2. **Assign operational ownership** — name the team responsible for the Azure subscription,
+  service availability, security updates, incidents, storage lifecycle, backup, and restore.
+3. **Choose durable storage** — use the validated Azure Files snapshot path or connect the
+  customer's preferred backend through a compatible `IFileSystemManager` implementation. Azure
+  Blob is the default bring-your-own-storage example. Select the supported MongoDB topology for
+  document metadata, operations, and checkpoints.
+4. **Build the customer release** — pin a reviewed FluidFramework revision and complete patch
+  set, build immutable routerlicious/historian/gitrest images, and publish them to the customer's
+  ACR.
+5. **Deploy the Azure service** — create AKS, deploy Redpanda and its topics, deploy the storage
+  backends, install Routerlicious, and expose alfred, nexus, and historian behind the customer's
+  DNS and TLS boundary.
+6. **Integrate customer identity** — connect the existing identity provider to a trusted backend
+  that authorizes tenant/document access and issues short-lived Routerlicious JWTs without
+  exposing the tenant signing key.
+7. **Configure the existing Fluid application** — replace the AFR connection configuration with
+  the customer's alfred, nexus, and historian URLs and the production token provider. Validate
+  create/load before moving production documents.
+8. **Migrate durable documents** — inventory the source documents, freeze source writes, recreate
+  the latest state on self-host, retain the old-to-new document-ID map, validate the destination,
+  and execute the agreed cutover or rollback.
+9. **Validate with the customer's application** — use representative documents and users to test
+  create, attach, realtime collaboration, signals/audience behavior, second-client cold-load,
+  convergence, restart recovery, and the customer-specific authorization policy.
+10. **Enter customer-operated service** — enable monitoring and alerts, establish backups and
+   restore drills, document SLO/RTO/RPO and escalation ownership, and adopt the pinned upgrade and
+   rollback process.
 
-```bash
-docker buildx build --build-context root=. --target runner --platform linux/amd64 \
-  -f server/<svc>/Dockerfile -t <ACR>.azurecr.io/<svc>:v1 --push server/<svc>
-# <svc> = routerlicious | historian | gitrest ; run from a FluidFramework checkout root
-```
+The infrastructure commands and VERIFY gates for step 5 are in the authoritative
+[Azure runbook](./azure/README.md). The production decisions and acceptance criteria spanning
+all ten steps are in [HANDOFF.md](./HANDOFF.md). **Fluid Chat was the project's validation
+client; customers validate the deployed service with their own application and representative
+workload.**
 
 ---
 
-## 4. Open items (honest status)
+## 6. Migration and maintenance
 
-- **Azure Blob for snapshots — not supported.** gitrest has no Blob backend in OSS (only
-  local-fs / in-memory / redis); we use an **Azure Files / managed-disk PV** instead. Blob
-  (AFR's model) would need a **new adapter** — not written.
-- **Token Azure Function — did not connect.** Token issuance works via `InsecureTokenProvider`
-  (dev) or a small **customer backend endpoint** (prod, signs with the tenant key); the
-  standalone serverless Function is unfinished (a CORS / auth-level / Key-Vault-env item).
-- **Migration from AFR — read-only "freeze" window (tested).** Freeze the source doc with
-  read-only (`[DocRead]`) tokens (nexus rejects writes server-side) → copy its state via the
-  Fluid client → recreate on the self-host → cut over. Tested end-to-end AFR → self-host.
-  Caveat: **latest state only** (no op history), same-document-ID preservation is a separate
-  mechanism, tested with self-signed tokens.
-- **Maintenance — strategy only (no tooling).** Upgrades = rebuild images from a newer
-  FluidFramework ref + rolling restart (shared storage schema, no data migration);
-  backup = snapshot the git-snapshot PV + Mongo; monitoring / autoscaling = to be designed.
+### 6.1 AFR migration model
+
+Use a controlled, read-only cutover:
+
+> **Inventory → freeze source writes → read latest state → recreate on self-host → validate →
+> map document references → cut over → roll back or complete**
+
+The project exercised the core freeze/read/recreate path: read-only tokens rejected source
+writes server-side, latest Fluid state was read through a client, and the state was recreated on
+the self-host service. A production migration should retain a document inventory, old-to-new ID
+map, validation record, cutover decision, rollback decision, and agreed data-history contract.
+
+### 6.2 Maintenance model
+
+The receiving operator owns the ongoing lifecycle:
+
+> **Pin → build → test → stage → deploy → monitor → roll back**
+
+The release process should pin a reviewed FluidFramework revision and complete patch set, create
+immutable image tags or digests, repeat client and storage validation in staging, and preserve a
+known-good rollback. Operational maintenance also includes MongoDB and snapshot backups, a
+broker recovery policy, restore drills, security-update intake, monitoring, alerts, SLOs, and
+incident ownership. Detailed receiving-team decisions are in [HANDOFF.md](./HANDOFF.md).
 
 ---
 
-## Repository map
+## 7. Production handoff: remaining work
 
-| Path | Purpose |
+This repository is a reference implementation. Before production use, the receiving team must
+assign owners and close the following outcomes:
+
+| Area | Required production outcome |
 | --- | --- |
-| [docker-compose.redpanda.yml](./docker-compose.redpanda.yml) · [.arm64.yml](./docker-compose.redpanda.arm64.yml) | Full stack (amd64 / arm64), built from source. |
-| [scripts/](./scripts) | `run-local` + `smoke-test` (PowerShell and bash). |
-| [nginx.conf](./nginx.conf) | Reverse proxy: REST/ws 3003, nexus 3002, historian 3001. |
-| [azure/](./azure) | AKS manifests, Helm values, and the (in-progress) deployment runbook. |
-| [token-function/](./token-function) | Token-minting Azure Function (open item — §4). |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | Full-stack and slim architecture + diagrams. |
-| [AGENTS.md](./AGENTS.md) | Deterministic runbook for an AI agent or a person. |
+| **Security and identity** | HTTPS/WSS and DNS; trusted token service; protected and rotatable tenant keys; backend access controls |
+| **Summary correctness** | Resolve the observed incremental-summary 404 and prove bounded operation-log growth |
+| **Reliability** | Select supported HA topologies for Redpanda, MongoDB, Redis, and the application tier; test restart, failover, backup, and restore |
+| **Storage** | Accept and govern Azure Files or provide and validate an `IFileSystemManager` implementation for the customer's preferred backend; define independent lifecycle and retention ownership |
+| **Operations** | Add metrics, dashboards, alerts, SLOs, capacity/load/soak evidence, runbooks, RTO/RPO, and incident response |
+| **Release engineering** | Pin source and images; archive patches and digests; test staged upgrades, security updates, and rollback |
+| **Compatibility** | Define the supported Fluid client/version matrix and confirm the required AFR-visible capability surface |
+| **Migration** | Deliver repeatable tooling and agree export availability, ID mapping, downtime, history, validation, and rollback contracts |
+| **Region and residency** | Agree deployment regions, data placement, replication, retention, and compliance ownership |
+
+Current-state evidence and tests not run are recorded in [VALIDATION.md](./VALIDATION.md);
+production acceptance criteria are in [HANDOFF.md](./HANDOFF.md). The next phase is
+receiving-team productionization with explicit owners and acceptance tests.
 
 ---
 
 ## License
 
-[MIT](./LICENSE). Fluid Framework and Routerlicious are © Microsoft Corporation.
+[MIT](./LICENSE).

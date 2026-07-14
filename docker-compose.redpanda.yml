@@ -1,15 +1,11 @@
-# Copyright (c) Microsoft Corporation and contributors. All rights reserved.
-# Licensed under the MIT License.
-#
 # ============================================================================
 # Self-host Fluid — FULL Routerlicious with the Kafka + ZooKeeper broker
 # replaced by a single REDPANDA service. amd64 variant.
 #
 # Builds the Fluid images FROM SOURCE (the FluidFramework repo) so the images
-# always match this compose. The published MCR images are intentionally NOT used:
-# they lag upstream `main` (older `latest` predates the `nexus` service split and
-# lacks the `/healthz/startup` route), so a main-derived compose does not match
-# them. Building from source avoids that version skew entirely.
+# match the selected source revision and this compose. The published images
+# evaluated during this project did not match the separate `nexus` topology and
+# `/healthz/startup` route used here, so this reference path builds from source.
 #
 # The helper ./scripts/run-local.* fetches the FluidFramework source from GitHub
 # (a shallow clone into ./.fluidframework) and builds. To reuse an existing
@@ -188,6 +184,7 @@ services:
     image: "redis:alpine"
 
   mongodb:
+    # Historical validation pin only; select and retest a supported version for production.
     image: "mongo:4"
     volumes:
       - mongodata:/data/db
