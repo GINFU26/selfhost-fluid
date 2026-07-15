@@ -1,8 +1,5 @@
 #!/usr/bin/env pwsh
-# Copyright (c) Microsoft Corporation and contributors. All rights reserved.
-# Licensed under the MIT License.
-#
-# Smoke test: verify the stack is up and the ingress responds through the proxy.
+# Ingress smoke test: print container status and verify two HTTP routes through the proxy.
 
 param([string]$ComposeFile)
 
@@ -31,16 +28,16 @@ foreach ($c in $checks) {
 
 Write-Host ""
 if ($fail -eq 0) {
-    Write-Host "SMOKE PASS - stack is up." -ForegroundColor Green
-    Write-Host "  REST + websocket     : http://localhost:3003"
-    Write-Host "  Storage (historian)  : http://localhost:3001"
-    Write-Host "  Tenant mgr (riddler) : http://localhost:5000"
+    Write-Host "SMOKE PASS - ingress routes are responding." -ForegroundColor Green
+    Write-Host "  REST + websocket     : http://127.0.0.1:3003"
+    Write-Host "  Storage (historian)  : http://127.0.0.1:3001"
+    Write-Host "  Tenant mgr (riddler) : http://127.0.0.1:5000"
     Write-Host ""
-    Write-Host "For a full functional check, run the Fluid client e2e suite against this"
-    Write-Host "stack with the r11s 'docker' driver (see README -> Validation)."
+    Write-Host "This ingress smoke does not assert every container or the Fluid op pipeline."
+    Write-Host "For full gates, see AGENTS.md and VALIDATION.md."
     exit 0
 } else {
     Write-Host "SMOKE FAIL - $fail check(s) failed. Inspect logs:" -ForegroundColor Red
-    Write-Host "  docker compose -f docker-compose.redpanda.yml logs --tail=100"
+    Write-Host "  docker compose -f `"$compose`" logs --tail=100"
     exit 1
 }

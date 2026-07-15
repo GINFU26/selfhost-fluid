@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) Microsoft Corporation and contributors. All rights reserved.
-# Licensed under the MIT License.
-#
-# Smoke test: verify the stack is up and the ingress responds through the proxy.
+# Ingress smoke test: print container status and verify two HTTP routes through the proxy.
 
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -16,7 +13,8 @@ echo ""
 echo "== Ingress checks =="
 check() {
   local name="$1" url="$2" code
-  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$url" || echo 000)"
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$url" || true)"
+  code="${code:-000}"
   if [ "$code" = "200" ]; then
     echo "PASS  $name -> 200"
   else
@@ -29,16 +27,16 @@ check "historian     (3001)" "http://127.0.0.1:3001/healthz/startup"
 
 echo ""
 if [ "$fail" -eq 0 ]; then
-  echo "SMOKE PASS - stack is up."
-  echo "  REST + websocket     : http://localhost:3003"
-  echo "  Storage (historian)  : http://localhost:3001"
-  echo "  Tenant mgr (riddler) : http://localhost:5000"
+  echo "SMOKE PASS - ingress routes are responding."
+  echo "  REST + websocket     : http://127.0.0.1:3003"
+  echo "  Storage (historian)  : http://127.0.0.1:3001"
+  echo "  Tenant mgr (riddler) : http://127.0.0.1:5000"
   echo ""
-  echo "For a full functional check, run the Fluid client e2e suite against this"
-  echo "stack with the r11s 'docker' driver (see README -> Validation)."
+  echo "This ingress smoke does not assert every container or the Fluid op pipeline."
+  echo "For full gates, see AGENTS.md and VALIDATION.md."
   exit 0
 else
   echo "SMOKE FAIL - $fail check(s) failed. Inspect logs:"
-  echo "  docker compose -f docker-compose.redpanda.yml logs --tail=100"
+  printf '  docker compose -f %q logs --tail=100\n' "$COMPOSE"
   exit 1
 fi

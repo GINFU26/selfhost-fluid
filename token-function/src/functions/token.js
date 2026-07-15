@@ -1,9 +1,8 @@
-/*!
- * Copyright (c) Microsoft Corporation and contributors. All rights reserved.
- * Licensed under the MIT License.
- */
-
 // Token-minting Azure Function for the self-hosted Fluid stack.
+//
+// DO NOT DEPLOY AS A PRODUCTION AUTHENTICATION BOUNDARY. This unfinished prototype
+// trusts caller-supplied tenant, document, and user fields and grants broad scopes.
+// See ../../../README.md and ../../README.md for the required production controls.
 //
 // Mints a Fluid access token (HS256 JWT) using the CUSTOMER-HELD tenant key. This
 // mirrors @fluidframework/azure-service-utils `generateToken` so that riddler

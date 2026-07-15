@@ -1,12 +1,7 @@
-<!--
-Copyright (c) Microsoft Corporation and contributors. All rights reserved.
-Licensed under the MIT License.
--->
-
 # AGENTS.md — deployment runbook
 
-This file lets an **AI agent or a person** stand up the self-host Fluid stack
-deterministically. Execute phases **in order**. After each phase, run its **VERIFY**
+This file lets an **AI agent or a person** stand up and verify the self-host Fluid stack
+through an ordered runbook. Execute phases **in order**. After each phase, run its **VERIFY**
 step and do **not** proceed until it passes. If VERIFY fails, consult **Troubleshooting**
 before retrying — do not loop blindly.
 
@@ -14,8 +9,9 @@ before retrying — do not loop blindly.
 
 - Docker and git are installed and the Docker daemon is running.
 - The working directory is the repository root (the folder containing `docker-compose.redpanda.yml`).
-- Both stacks BUILD the Fluid images from source (the published MCR images lag upstream
-  `main` and don't match this compose). Run the script matching the host arch.
+- Both stacks BUILD the Fluid images from source. The published images evaluated during this
+  project did not match the source revision and service topology used by this compose. Run
+  the script matching the host arch.
 
 ---
 
@@ -29,41 +25,57 @@ before retrying — do not loop blindly.
 2. **arm64 host:** `./scripts/run-local-arm64.ps1` / `.sh` (patches the Dockerfiles for arm64).
 
 To reuse an existing checkout instead of cloning, set `FLUID_REPO_DIR` to its repo root.
+For an evidence-equivalent or production release, use a reviewed checkout or set `FLUID_REF`
+to a reviewed branch/tag, then archive the exact commit, patch set, and resulting image digests.
 
 **VERIFY** (all must hold):
 
-- `docker compose -f docker-compose.redpanda.yml ps` shows `alfred`, `nexus`, `historian` as `healthy`.
-- `curl -fsS http://localhost:3003/healthz/startup` returns HTTP 200 (alfred via proxy).
-- `curl -fsS http://localhost:3001/healthz/startup` returns HTTP 200 (historian via proxy).
-- Or simply run the smoke test and expect `SMOKE PASS`:
-  - bash: `./scripts/smoke-test.sh`
-  - PowerShell: `./scripts/smoke-test.ps1`
+- Use `docker-compose.redpanda.yml` on amd64 and `docker-compose.redpanda.arm64.yml` on arm64
+  for every Compose command below.
+- `docker compose -f <compose-file> ps` shows `alfred`, `nexus`, `historian` as `healthy`.
+- `curl -fsS http://127.0.0.1:3003/healthz/startup` returns HTTP 200 (alfred via proxy).
+- `curl -fsS http://127.0.0.1:3001/healthz/startup` returns HTTP 200 (historian via proxy).
+- Run the ingress smoke test and expect `SMOKE PASS`:
+  - amd64 bash / PowerShell: `./scripts/smoke-test.sh` / `./scripts/smoke-test.ps1`
+  - arm64 bash: `./scripts/smoke-test.sh docker-compose.redpanda.arm64.yml`
+  - arm64 PowerShell: `./scripts/smoke-test.ps1 -ComposeFile docker-compose.redpanda.arm64.yml`
 
-**On failure:** `docker compose -f docker-compose.redpanda.yml logs --tail=100`. See Troubleshooting.
+The smoke test checks the two HTTP ingress routes and prints container status; it does not
+replace the container-health assertions above or a Fluid client E2E run.
 
-**Why build from source:** the published MCR images lag upstream `main` (older `latest`
-predates the `nexus` service split and lacks the `/healthz/startup` route), so a
-main-derived compose does not match them. Building keeps images and compose in lockstep.
+**On failure:** `docker compose -f <compose-file> logs --tail=100`. See Troubleshooting.
+
+**Why build from source:** the published images evaluated during this project did not match
+the separate `nexus` topology and `/healthz/startup` route used by this compose. Building
+keeps the selected source revision and compose in lockstep.
 
 ---
 
 ## Phase 2 — Azure (AKS)
 
-**Goal:** the same full stack on AKS, with images **built from source and pushed to ACR**
-(the MCR images don't work), Redpanda as the broker, **in-cluster Mongo + Redis**, and gitrest
-snapshots on an **Azure Files PV**. Managed Cosmos / Azure Cache / a token Azure Function are
-optional or open (see the runbook's hardening section).
+**Goal:** the same selected Routerlicious + Redpanda architecture on AKS, with images **built
+from source and pushed to ACR**. The published images evaluated during this project did not
+match the validated source revision and topology. The reference deployment uses **in-cluster
+Mongo + Redis** and gitrest snapshots on an **Azure Files PV**. Managed database/cache services
+and a production token backend are productionization choices (see the runbook's hardening section).
 
 **Runbook — [azure/README.md](./azure/README.md) is authoritative.** Follow its phases in
 order (each has a VERIFY step):
 
-- **Phase 0** build images to ACR (buildx `--build-context root=.`; `az acr build` can't do it).
-- **Phase 1–4 [VALIDATED]:** RG + ACR + AKS; image-pull secret; Redpanda + topics; in-cluster
-  backends (gitrest on an Azure Files PV — the PVC binds RWX).
-- **Phase 5 [PREPARED, not run end-to-end]:** `helm install` the routerlicious services.
-- **Phase 6–7 [OPEN]:** public LB expose + smoke; the client **token Azure Function** (it did
-  NOT connect — the known blocker; issue tokens via `InsecureTokenProvider` (dev) or a customer
-  backend (prod) instead). Do not present these as working.
+- **Phase 0** create the resource group and ACR.
+- **Phase 1–3 [VALIDATED]:** build/push images with buildx
+  (`--build-context root=.`; `az acr build` can't do it), create AKS, configure the image-pull
+  secret, and deploy PVC-backed Redpanda + topics.
+- **Phase 4 [VALIDATED]:** deploy the in-cluster backends; the gitrest Azure Files PVC binds RWX.
+- **Phase 5–6 [VALIDATED]:** `helm install` the Routerlicious services; expose alfred, nexus,
+  and historian; validate connect, create/attach, real-time sync, second-client cold-load and
+  convergence, and audience presence with a real Fluid client.
+- **Phase 7 [OPEN]:** the client **token Azure Function** did not connect. The validated path
+  used `InsecureTokenProvider` (development only); production needs a trusted customer backend.
+
+This is a validated **reference deployment**, not production-ready infrastructure. It uses
+HTTP, single replicas, an unfinished production-auth path, and prototype secret handling. Do
+not present restart persistence as broker high availability; see the Azure hardening register.
 
 ---
 
@@ -76,7 +88,8 @@ order (each has a VERIFY step):
 | Port already in use | Free ports `3001`, `3002`, `3003`, `5000`, `9092`, `9644`, `3022` on the host. |
 | `alfred`/`nexus` not healthy | Give it up to ~1 min (healthcheck `start_period` 20s + retries). Then check `logs`. |
 | Storage errors on op-heavy load | Confirm `gitrest` and `historian` are up; the `git` and `mongodata` volumes exist. |
-| Redpanda / topic errors | Redpanda is aliased `kafka`; `--mode=dev-container` auto-creates topics. Restart redpanda if it lost the alias after a partial `up`. |
+| Local Redpanda / topic errors | Redpanda is aliased `kafka`; the local development stack may auto-create topics. Confirm both `rawdeltas` and `deltas` exist before restarting application services. |
+| Azure reconnect storm / `Unable to allocate topic` | Confirm the PVC is bound and both topics exist with 8 partitions and replication factor 1. An `emptyDir` loses topics after rescheduling; use `azure/redpanda.yaml`, which includes the PVC and `fsGroup: 101`. |
 | Smoke or e2e client hangs on `localhost` | Windows Docker Desktop IPv6 `localhost` forwarding can be broken (`localhost:3003` hangs, `127.0.0.1:3003` works). The scripts already use `127.0.0.1`; for the e2e run set `NODE_OPTIONS=--dns-result-order=ipv4first`. |
 
 ---
@@ -99,5 +112,5 @@ order (each has a VERIFY step):
 
 ## Teardown
 
-- Stop, keep data: `docker compose -f docker-compose.redpanda.yml down`
-- Stop, delete data: `docker compose -f docker-compose.redpanda.yml down -v`
+- Stop, keep data: `docker compose -f <compose-file> down`
+- Stop, delete data: `docker compose -f <compose-file> down -v`

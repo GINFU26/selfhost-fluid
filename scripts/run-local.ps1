@@ -1,7 +1,4 @@
 #!/usr/bin/env pwsh
-# Copyright (c) Microsoft Corporation and contributors. All rights reserved.
-# Licensed under the MIT License.
-#
 # One-command local bring-up of the self-host Fluid (redpanda-full) stack on amd64.
 # Fetches the FluidFramework source (a shallow clone into ./.fluidframework), builds the
 # images from source, starts the stack, waits for health, and runs the smoke test.
@@ -9,6 +6,18 @@
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $compose = Join-Path $root "docker-compose.redpanda.yml"
+
+# Load the supported source-selection values unless the caller already exported them.
+$envFile = Join-Path $root ".env"
+if (-not (Test-Path $envFile)) { Copy-Item (Join-Path $root ".env.example") $envFile }
+foreach ($line in Get-Content $envFile) {
+    if ($line -match '^\s*(FLUID_REPO_DIR|FLUID_REF)\s*=\s*(.*?)\s*$') {
+        $name = $Matches[1]
+        if (-not [Environment]::GetEnvironmentVariable($name, "Process")) {
+            [Environment]::SetEnvironmentVariable($name, $Matches[2], "Process")
+        }
+    }
+}
 
 # --- Preflight ---------------------------------------------------------------
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
@@ -26,7 +35,13 @@ if ($serverArch -eq "arm64") {
 # Default: shallow-clone FluidFramework from GitHub into ./.fluidframework (gitignored).
 # To reuse an existing checkout, set FLUID_REPO_DIR to its repo root before running.
 $explicitRepo = [bool]$env:FLUID_REPO_DIR
-$fluidRepo = if ($explicitRepo) { $env:FLUID_REPO_DIR } else { Join-Path $root ".fluidframework" }
+$fluidRepo = if ($explicitRepo) {
+    if ([System.IO.Path]::IsPathRooted($env:FLUID_REPO_DIR)) {
+        $env:FLUID_REPO_DIR
+    } else {
+        Join-Path $root $env:FLUID_REPO_DIR
+    }
+} else { Join-Path $root ".fluidframework" }
 $marker = Join-Path $fluidRepo "server\routerlicious\Dockerfile"
 if (-not (Test-Path $marker)) {
     if ($explicitRepo) {
@@ -39,6 +54,25 @@ if (-not (Test-Path $marker)) {
     Write-Host "Fetching FluidFramework source ($ref) from GitHub into $fluidRepo ..." -ForegroundColor Cyan
     git clone --depth 1 --branch $ref https://github.com/microsoft/FluidFramework $fluidRepo
     if ($LASTEXITCODE -ne 0) { throw "git clone of FluidFramework failed." }
+}
+
+# Apply FLUID_REF on every run for the helper-managed checkout. Do not mutate a checkout supplied
+# through FLUID_REPO_DIR; its owner selects and reviews that revision.
+if (-not $explicitRepo -and $env:FLUID_REF) {
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        throw "git is required to select FLUID_REF in the helper-managed checkout."
+    }
+    git -C $fluidRepo diff --quiet
+    $worktreeDirty = $LASTEXITCODE -ne 0
+    git -C $fluidRepo diff --cached --quiet
+    $indexDirty = $LASTEXITCODE -ne 0
+    if ($worktreeDirty -or $indexDirty) {
+        throw "Helper-managed FluidFramework checkout has tracked local changes; refusing to switch FLUID_REF."
+    }
+    git -C $fluidRepo fetch --depth 1 origin $env:FLUID_REF
+    if ($LASTEXITCODE -ne 0) { throw "Unable to fetch FLUID_REF '$($env:FLUID_REF)'." }
+    git -C $fluidRepo checkout --detach FETCH_HEAD
+    if ($LASTEXITCODE -ne 0) { throw "Unable to check out FLUID_REF '$($env:FLUID_REF)'." }
 }
 $env:FLUID_REPO_DIR = ((Resolve-Path $fluidRepo).Path -replace '\\', '/')
 Write-Host "Building Fluid images from: $env:FLUID_REPO_DIR" -ForegroundColor Cyan

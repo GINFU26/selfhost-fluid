@@ -1,6 +1,3 @@
-# Copyright (c) Microsoft Corporation and contributors. All rights reserved.
-# Licensed under the MIT License.
-#
 # ============================================================================
 # Self-host Fluid — FULL Routerlicious + REDPANDA, NATIVE arm64 (build from source).
 #
@@ -11,8 +8,8 @@
 #
 # Needs the FluidFramework source (build context). The helper ./scripts/run-local-arm64.*
 # fetches it from GitHub (a shallow clone into ./.fluidframework) and GENERATES the arm64
-# Dockerfiles by patching upstream's (drop the amd64 digest pin + use tini-arm64), so
-# nothing arm64-specific is vendored and it tracks upstream automatically.
+# Dockerfiles by patching the current upstream files on every helper run (drop the amd64
+# digest pin + use tini-arm64), so stale generated files do not survive a source update.
 # To reuse an existing checkout set FLUID_REPO_DIR to its repo root.
 #
 # Run via the helper (recommended, handles clone + Dockerfile generation):
@@ -200,6 +197,7 @@ services:
 
   mongodb:
     platform: linux/arm64/v8
+    # Historical validation pin only; select and retest a supported version for production.
     image: "mongo:4"
     volumes:
       - mongodata:/data/db

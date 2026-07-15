@@ -1,12 +1,16 @@
 # Helm values for the routerlicious chart, full-stack on AKS.
-# Replace <ACR> with your registry login server. The image is built from source and pushed
-# to ACR (see README "Phase 0"), NOT pulled from MCR.
+# Replace <ACR> with your ACR resource name (for example, myregistry; do not include
+# .azurecr.io) and <IMAGE_TAG> with the unique immutable release tag created in README
+# Phase 1. The image is built from source and pushed to ACR.
 #
 # The tenant key (PLACEHOLDER_KEY) is injected at install time via --set-string -- never
-# commit a real key:
+# commit a real key. This is a REFERENCE shortcut: the current chart renders the key into a
+# ConfigMap and retains it in Helm release metadata, while the CLI can expose it in shell
+# history. Production must replace this chart path with secret injection and key rotation.
+# Install only from the rendered copy created in azure/README.md:
 #   key=$(openssl rand -hex 32)
-#   helm install fluid "<FLUID>/server/routerlicious/kubernetes/routerlicious" \
-#     -f azure/routerlicious-values.yaml \
+#   helm install fluid "$FLUID_ROOT/server/routerlicious/kubernetes/routerlicious" \
+#     -f "$DEPLOY_DIR/routerlicious-values.yaml" \
 #     --set-string "alfred.key=$key"  --set-string "nexus.key=$key" \
 #     --set-string "alfred.tenants[0].key=$key" --set-string "nexus.tenants[0].key=$key" \
 #     --set-string "riddler.tenants[0].key=$key"
@@ -14,8 +18,19 @@
 # mongodb below points at the in-cluster mongo (backends.yaml). For managed Cosmos DB for
 # MongoDB (vCore) instead, set operationsDbEndpoint to the Cosmos connection string and
 # directConnection: false.
-image: <ACR>.azurecr.io/routerlicious:v1
+#
+# alfred.local / nexus.local below are placeholders. The validated client supplies separate
+# alfred, nexus, and historian endpoints directly. The referenced chart does not map
+# nexus.externalUrl to worker.deltaStreamUrl, so do not enable discovery for separate public
+# endpoints until that chart gap is fixed and validated. Never commit live IPs or credentials.
+image: <ACR>.azurecr.io/routerlicious:<IMAGE_TAG>
 imagePullPolicy: IfNotPresent
+
+# The upstream chart always renders alfred/nexus Ingress objects. The validated reference uses
+# explicit LoadBalancer Services instead, so assign a class with no installed controller. A
+# production ingress design must replace this value and supply real hosts/TLS secrets.
+ingress:
+  class: selfhost-reference-disabled
 
 alfred:
   replicas: 1
@@ -58,6 +73,10 @@ riddler:
 
 storage:
   storageUrl: http://gitrest
+  # This records the mode exercised by the Azure reference deployment. The
+  # incremental-summary 404 remains open; changing it requires the validation
+  # listed in README "Production hardening".
+  enableWholeSummaryUpload: false
 
 historian:
   externalUrl: http://historian
