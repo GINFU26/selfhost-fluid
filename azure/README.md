@@ -316,7 +316,7 @@ retained. See [the validation record](../VALIDATION.md) for the evidence boundar
 | Phase | State |
 | --- | --- |
 | 0 Resource group + ACR | [VALIDATED] |
-| 1 Build images → ACR (Route B) + create AKS | [VALIDATED] |
+| 1 Build images → ACR + create AKS | [VALIDATED] |
 | 2 Image-pull secret | [VALIDATED] |
 | 3 Redpanda + topics | [VALIDATED] |
 | 4 In-cluster backends (gitrest on Azure Files PV) | [VALIDATED] |
