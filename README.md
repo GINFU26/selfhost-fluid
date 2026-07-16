@@ -19,7 +19,7 @@
 
 ### Results at a glance
 
-|  |  |
+| Aspect | Summary |
 | --- | --- |
 | **Problem** | AFR is retiring; a small set of third-party apps still need real-time + durable Fluid under their own operation |
 | **Approach** | Translated the AFR-visible client experience into self-host requirements, then compared four candidate architectures on five criteria — client behavior, durability, resource footprint, operational complexity, and maintainability — and selected on recorded evidence |
