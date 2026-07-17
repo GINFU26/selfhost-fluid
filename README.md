@@ -1,18 +1,18 @@
 # Self-host Fluid Framework — Routerlicious + Redpanda
 
-**A customer-operated continuity path for Fluid applications after Azure Fluid Relay (AFR) retires.**
+**A customer-operated self-host option for third-party clients who want to run Fluid Framework themselves.**
 
 **Project owner:** Gin Fu
 
 ## Executive overview
 
-> **TL;DR** — This project turns the retirement of Azure Fluid Relay (AFR) into a concrete product
-> and engineering solution for the third-party Fluid applications that still need service
-> continuity. Combining **product ownership with hands-on engineering**, it scopes the customer
-> problem, compares four service architectures on five criteria, and designs and builds the
-> selected self-hosted service — **full Routerlicious with Redpanda replacing Kafka + ZooKeeper** —
-> for a much lighter broker tier. It then proves the service with a real Fluid client on Azure AKS
-> and carries it through the **full lifecycle**, from initial scope to production handoff:
+> **TL;DR** — This project delivers a concrete product and engineering solution for third-party
+> clients who want to run Fluid Framework as a service they operate themselves. Combining **product ownership with
+> hands-on engineering**, it scopes the customer need, compares four service architectures on five
+> criteria, and designs and builds the selected self-hosted service — **full Routerlicious with
+> Redpanda replacing Kafka + ZooKeeper** — for a much lighter broker tier. It then proves the
+> service with a real Fluid client on Azure AKS and carries it through the **full lifecycle**, from
+> initial scope to production handoff:
 >
 > **scope → requirements → architecture comparison → decision → implementation → local and Azure
 > validation → customer deployment → migration → maintenance → production handoff**
@@ -21,13 +21,13 @@
 
 | Aspect | Summary |
 | --- | --- |
-| **Problem** | AFR is retiring; a small set of third-party apps still need real-time + durable Fluid under their own operation |
-| **Approach** | Translated the AFR-visible client experience into self-host requirements, then compared four candidate architectures on five criteria — client behavior, durability, resource footprint, operational complexity, and maintainability — and selected on recorded evidence |
+| **Need** | Third-party clients need to run Fluid under their own operation — for control, data residency, cost at their scale, or to avoid a managed-service dependency — with real-time + durable collaboration |
+| **Approach** | Translated the client-visible Fluid experience into self-host requirements, then compared four candidate architectures on five criteria — client behavior, durability, resource footprint, operational complexity, and maintainability — and selected on recorded evidence |
 | **Decision** | **Full Routerlicious + Redpanda** — the mainline Routerlicious topology with Redpanda as its Kafka-compatible broker |
 | **Efficiency** | **Same quality, far less cost** — vs. the original full Routerlicious (Kafka + ZooKeeper), the same recorded end-to-end test result at ~**13×** less average broker CPU, ~**33×** less peak, and ~**2.2×** less memory |
 | **Validation** | A real Fluid client on **Azure AKS**: connect, two-client realtime sync, cold-load, convergence, and audience presence |
 | **Delivered** | Source-built **local + Azure AKS** deployments, persistent operations/snapshot storage, and deployment automation with runbooks |
-| **Full lifecycle** | Beyond build — **customer adoption, AFR migration (exercised), maintenance/operations, and a production handoff** to the receiving team |
+| **Full lifecycle** | Beyond build — **customer adoption, migration (exercised), maintenance/operations, and a production handoff** to the receiving team |
 
 ### Repository guide
 
@@ -44,23 +44,22 @@
 
 ## 1. Scope and requirements
 
-**The goal is a practical continuity bridge, not a new platform.** AFR is being retired while a
-limited set of third-party applications still depends on it. This project is a **supporting
-continuity bridge** for that audience, not a new general-purpose platform or a recreation of every
-managed-service capability.
+**The goal is a practical self-host option, not a new platform.** Third-party clients want or need
+to run Fluid under their own operation — for control, data residency, cost at their scale, or to
+avoid a managed-service dependency. This project is a **customer-operated self-host option** for
+that audience, not a new general-purpose platform or a recreation of every managed-service capability.
 
-**Who this is for:** third-party teams that already run a Fluid application on AFR and must keep it
-working under their own operation after retirement.
+**Who this is for:** third-party clients that run a Fluid application and want to operate its
+backend themselves rather than depend on a managed Fluid service.
 
-Historical usage data for the remaining third-party segment showed a limited customer set with
-modest monthly session volume relative to AFR's managed-service scale. Demand was concentrated in
-a small number of applications rather than distributed across a broad market. The customer need
-was therefore a practical continuity path that preserves real-time collaboration and durable data
-under customer operation, rather than a new service that reproduces AFR's hyperscale footprint.
+The target is a focused set of applications with modest session volume rather than a broad,
+hyperscale market. The need is therefore a practical self-host path that preserves real-time
+collaboration and durable data under customer operation, rather than a service that reproduces a
+managed service's hyperscale footprint.
 
 Applications rely on Fluid for two connected outcomes: **real-time synchronization and durable
-data**. The self-host path therefore had to account for the AFR capabilities visible to a Fluid
-client and for the operational responsibilities that move to the receiving team:
+data**. The self-host path therefore had to account for the Fluid capabilities visible to a client
+and for the operational responsibilities that move to the receiving team:
 
 - **Collaboration:** connect, create/load, operation ordering, realtime updates, signals,
   audience, and presence.
@@ -128,7 +127,7 @@ are documented in [ARCHITECTURE.md](./ARCHITECTURE.md).
 | **Token and identity** | Customer backend authenticates users, authorizes document access, and issues short-lived Routerlicious JWTs | End-to-end auth validated on a development token path; production token service handed off (Section 7) |
 | **Local deployment** | Source-built Docker Compose with amd64 and arm64 entry points | Implemented with health and smoke verification |
 | **Azure deployment** | ACR + AKS + Helm, managed-disk PVCs, Azure Files, and explicit service endpoints | Implemented and validated with Fluid Chat |
-| **AFR migration** | Read-only freeze, latest-state recreation, validation, and controlled cutover | Latest-state path exercised end to end (freeze → recreate → validate); cutover/rollback and repeatable tooling handed off (Section 7) |
+| **Migration** | Read-only freeze, latest-state recreation, validation, and controlled cutover | Latest-state path exercised end to end (freeze → recreate → validate); cutover/rollback and repeatable tooling handed off (Section 7) |
 | **Maintenance** | Pin, build, test, stage, deploy, monitor, and roll back; back up durable stores | Operating model and receiving-team responsibilities defined |
 
 ### 2.3 Delivered artifacts
@@ -142,7 +141,7 @@ architecture and validation records, and phase-by-phase operator runbooks.
 ## 3. Architecture comparison and decision
 
 **The decision lens.** The four service shapes were compared on five criteria: **client behavior**
-(the AFR-visible collaboration experience), **durability** (surviving process loss and restart),
+(the client-visible collaboration experience), **durability** (surviving process loss and restart),
 **resource footprint** (broker and runtime cost), **operational complexity** (services to run and
 coordinate), and **long-term maintainability** (staying on the mainline Routerlicious path). The
 options, the recorded comparison, and the resulting decision follow.
@@ -179,7 +178,7 @@ development environment, not production-capacity figures. Full provenance is in
 
 ### 3.3 Decision
 
-**Full Routerlicious + Redpanda** was selected. The continuity requirement was larger than standing
+**Full Routerlicious + Redpanda** was selected. The self-host requirement was larger than standing
 up a Fluid-compatible server: the service needed an ordering path that survives beyond a single
 application process — but without Kafka and ZooKeeper's recorded cost. That framed two decisions.
 
@@ -260,8 +259,8 @@ can collaborate through the AKS deployment, and persisted state can initialize a
 
 ## 5. Customer self-host adoption guide
 
-**From local evaluation to operated service.** This guide takes a third-party team from trying the
-service locally to running its existing Fluid application on a self-hosted service the team fully
+**From local evaluation to operated service.** This guide takes a third-party client from trying the
+service locally to running its existing Fluid application on a self-hosted service the client fully
 operates. The application keeps working with only minimal changes — new service endpoints, a
 production token provider, and remapped document references. First evaluate the service locally
 (5.1); then follow the production adoption journey (5.2): plan and design, build and deploy,
@@ -354,8 +353,8 @@ migration and go-live, which you schedule when you are ready.
 
 **Phase 4 — Migrate and go live (you schedule this)**
 
-9. **Migrate and cut over** — at a window you choose, follow the [AFR migration
-  story](#61-afr-migration-story): freeze the AFR source to read-only, migrate each document's
+9. **Migrate and cut over** — at a window you choose, follow the [migration
+  story](#61-migration-story): freeze the source to read-only, migrate each document's
   latest state, remap document references, and cut over. The source stays read-only until you
   accept the cutover or roll back.
 10. **Run in production** — confirm the live service with real users, then operate it day to day
@@ -369,10 +368,10 @@ The infrastructure commands and VERIFY gates for deployment are in the authorita
 
 ## 6. Migration and maintenance
 
-**Two operator concerns after cutover:** moving durable state across from AFR, and running the
+**Two operator concerns after cutover:** moving durable state across from an existing service, and running the
 service safely over time. The migration model and the ongoing maintenance loop follow.
 
-### 6.1 AFR migration story
+### 6.1 Migration story
 
 The approach is a **logical read-only freeze and latest-state recreation** — not a server shutdown
 or a zero-downtime live migration. Freezing writes (reads keep working) gives one consistent
@@ -440,7 +439,7 @@ team to own and complete before the service goes to production for a customer:
 | **Storage** | Accept and govern Azure Files, or provide and validate an `IFileSystemManager` adapter for the customer's preferred backend (e.g., Azure Blob) handed to the team to build; define independent lifecycle and retention ownership |
 | **Operations** | Add metrics, dashboards, alerts, SLOs, capacity/load/soak evidence, runbooks, RTO/RPO, and incident response |
 | **Release engineering** | Pin source and images; archive patches and digests; test staged upgrades, security updates, and rollback |
-| **Compatibility** | Define the supported Fluid client/version matrix and confirm the required AFR-visible capability surface |
+| **Compatibility** | Define the supported Fluid client/version matrix and confirm the required client-visible capability surface |
 | **Migration** | Deliver repeatable, automated tooling that migrates the full document inventory, and agree export availability, ID mapping, downtime, history, validation, and rollback contracts |
 | **Region and residency** | Agree deployment regions, data placement, replication, retention, and compliance ownership |
 

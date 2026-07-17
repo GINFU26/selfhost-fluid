@@ -66,10 +66,11 @@ The delivered manifest replaces `emptyDir` with a managed-disk PVC and sets `fsG
 
 This proves restart persistence for the recorded single-node scenario. It does not prove high availability, node-loss tolerance, quorum recovery, or zero-downtime failover.
 
-## AFR latest-state migration concept
+## Latest-state migration concept
 
-The project record dated 2026-07-08 describes a manual AFR-to-self-host exercise: issue
-read-only `[DocRead]` source tokens, confirm writes are rejected server-side, read the latest
+The project record dated 2026-07-08 describes a manual migration exercise from a hosted Fluid
+service to self-host: issue read-only `[DocRead]` source tokens, confirm writes are rejected
+server-side, read the latest
 state through a Fluid client, recreate that state in the self-host deployment, and confirm the
 destination remains writable while the source remains frozen.
 

@@ -89,7 +89,7 @@ The following results were recorded by the project before this handoff. They are
 | Presence | Both clients appeared in the audience | No large-audience test |
 | Snapshot persistence | gitrest snapshots used an Azure Files persistent volume | Adapters for Azure Blob or other customer-selected backends were not implemented |
 | Broker restart persistence | Both topics and their partition/replication settings remained after a pod restart with the PVC | Message-log integrity was not separately checked; single node; no failover test |
-| AFR migration concept | A read-only freeze and latest-state recreation path was exercised from AFR to self-host | Latest state only; no op-history or seamless cutover guarantee |
+| Migration concept | A read-only freeze and latest-state recreation path was exercised from a hosted Fluid service to self-host | Latest state only; no op-history or seamless cutover guarantee |
 
 ## 6. Build and deployment decisions
 
@@ -162,7 +162,7 @@ An incremental-summary upload returned `404 Summary tree handle object not found
 
 ### Migration
 
-The exercised AFR migration concept freezes source writes, reads the latest collaborative state, recreates it on the self-hosted service, and cuts clients over. It does not preserve operation history, guarantee the same document identifier, or provide a seamless live migration.
+The exercised migration concept freezes source writes, reads the latest collaborative state, recreates it on the self-hosted service, and cuts clients over. It does not preserve operation history, guarantee the same document identifier, or provide a seamless live migration.
 
 ## 9. Productionization decision register
 

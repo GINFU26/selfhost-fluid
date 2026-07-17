@@ -4,7 +4,7 @@
 #   gitrest snapshots -> Azure Files PV (RWX SMB) via the custom StorageClass below.
 #     gitrest has NO Blob backend in OSS (only local-fs / mem / redis), so durable Azure
 #     storage = a filesystem PV. Azure Files is the zero-code managed option; Azure Blob
-#     (AFR's model) would need a new IFileSystemManager adapter.
+#     (a common managed-service storage model) would need a new IFileSystemManager adapter.
 #   mongo (ops/metadata) -> in-cluster, on a managed-disk (block) PV. Mongo needs real file
 #     locking, so block storage, not SMB. The historically validated mongo:4 pin below is
 #     single-node, no-auth, and not a current production recommendation. Select and validate a

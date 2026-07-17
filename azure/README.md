@@ -362,7 +362,7 @@ or a second source of truth.
   an appropriate replication factor, failure testing, backup/restore, and an ownership
   decision (managed service versus operated in-cluster).
 - **Snapshots on Azure Blob:** gitrest has **no Blob backend in OSS** (only local-fs / mem /
-  redis). Azure Files (this runbook) is the zero-code managed option; Blob (AFR's model)
+  redis). Azure Files (this runbook) is the zero-code managed option; Blob (a common managed-service storage model)
   requires **writing a new `IFileSystemManager` adapter**.
 - **MongoDB:** the reference manifest preserves the historically validated `mongo:4` pin and
   has no authentication or TLS. Select a currently supported MongoDB-compatible topology, such
