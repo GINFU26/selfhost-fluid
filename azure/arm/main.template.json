@@ -53,16 +53,15 @@
     },
     "dnsPrefix": {
       "type": "string",
-      "defaultValue": "gen-test-a-gin-test-001-5a5798",
+      "defaultValue": "aks-cluster",
       "metadata": {
         "description": "AKS API server DNS prefix."
       }
     },
     "sshPublicKey": {
       "type": "string",
-      "defaultValue": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ1nXvH4bu7Uq/mcDFIbH5RSkvN7MpLcLtbyqZWDRRygu5o1nbl+TwRntdW+/xCXvKxQseDeORX2zX1P0Mo1H854nAgeygdXVVuAZTOVqTVOWIYTg9Js8kFFAoJmkY4eYUAC+I+J1DyO2Rns1Hs1EjVbJGScviy+cXqX+kEwp70Rr7x8+eeGyxVfG8G+B6s4TvcAPUtIb4P9D9UuHv++T/kRDEcU4+Jl8aN6e7vX8Xe6EZH58Zgmnzd+eTO0ciHQV1QDmF69eLmnccxPuj2JmQOtutXXL0C+az7q/eTGvZzLnfdkDQsMhbcb/OuBLDwaUCAmIHpbAkD8omaju4Bb/1",
       "metadata": {
-        "description": "SSH public key for Linux nodes."
+        "description": "SSH public key for Linux nodes (required; provide your own — no default for security)."
       }
     }
   },

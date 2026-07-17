@@ -1315,9 +1315,9 @@
       "identity": {
         "type": "UserAssigned",
         "userAssignedIdentities": {
-          "/subscriptions/5a57980f-c6bb-4cd7-8b26-6d258bae1d71/resourceGroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/gen-test-aks-001-agentpool": {},
-          "/subscriptions/5a57980f-c6bb-4cd7-8b26-6d258bae1d71/resourcegroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/azurepolicy-gen-test-aks-001": {},
-          "/subscriptions/5a57980f-c6bb-4cd7-8b26-6d258bae1d71/resourcegroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/ext-2c26b4151b0060abd40059868bf6e436-gen-test-aks-001": {}
+          "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/gen-test-aks-001-agentpool": {},
+          "/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/azurepolicy-gen-test-aks-001": {},
+          "/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/ext-2c26b4151b0060abd40059868bf6e436-gen-test-aks-001": {}
         }
       },
       "location": "[parameters('location')]",
@@ -1432,7 +1432,7 @@
               "ssh": {
                 "publicKeys": [
                   {
-                    "keyData": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ1nXvH4bu7Uq/mcDFIbH5RSkvN7MpLcLtbyqZWDRRygu5o1nbl+TwRntdW+/xCXvKxQseDeORX2zX1P0Mo1H854nAgeygdXVVuAZTOVqTVOWIYTg9Js8kFFAoJmkY4eYUAC+I+J1DyO2Rns1Hs1EjVbJGScviy+cXqX+kEwp70Rr7x8+eeGyxVfG8G+B6s4TvcAPUtIb4P9D9UuHv++T/kRDEcU4+Jl8aN6e7vX8Xe6EZH58Zgmnzd+eTO0ciHQV1QDmF69eLmnccxPuj2JmQOtutXXL0C+az7q/eTGvZzLnfdkDQsMhbcb/OuBLDwaUCAmIHpbAkD8omaju4Bb/1",
+                    "keyData": "REDACTED-SSH-PUBLIC-KEY",
                     "path": "/home/azureuser/.ssh/authorized_keys"
                   }
                 ]
@@ -1499,9 +1499,9 @@
       "identity": {
         "type": "UserAssigned",
         "userAssignedIdentities": {
-          "/subscriptions/5a57980f-c6bb-4cd7-8b26-6d258bae1d71/resourceGroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/gen-test-aks-001-agentpool": {},
-          "/subscriptions/5a57980f-c6bb-4cd7-8b26-6d258bae1d71/resourcegroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/azurepolicy-gen-test-aks-001": {},
-          "/subscriptions/5a57980f-c6bb-4cd7-8b26-6d258bae1d71/resourcegroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/ext-2c26b4151b0060abd40059868bf6e436-gen-test-aks-001": {}
+          "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/gen-test-aks-001-agentpool": {},
+          "/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/azurepolicy-gen-test-aks-001": {},
+          "/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/ext-2c26b4151b0060abd40059868bf6e436-gen-test-aks-001": {}
         }
       },
       "location": "[parameters('location')]",
@@ -1564,7 +1564,7 @@
             "ssh": {
               "publicKeys": [
                 {
-                  "keyData": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ1nXvH4bu7Uq/mcDFIbH5RSkvN7MpLcLtbyqZWDRRygu5o1nbl+TwRntdW+/xCXvKxQseDeORX2zX1P0Mo1H854nAgeygdXVVuAZTOVqTVOWIYTg9Js8kFFAoJmkY4eYUAC+I+J1DyO2Rns1Hs1EjVbJGScviy+cXqX+kEwp70Rr7x8+eeGyxVfG8G+B6s4TvcAPUtIb4P9D9UuHv++T/kRDEcU4+Jl8aN6e7vX8Xe6EZH58Zgmnzd+eTO0ciHQV1QDmF69eLmnccxPuj2JmQOtutXXL0C+az7q/eTGvZzLnfdkDQsMhbcb/OuBLDwaUCAmIHpbAkD8omaju4Bb/1",
+                  "keyData": "REDACTED-SSH-PUBLIC-KEY",
                   "path": "/home/azureuser/.ssh/authorized_keys"
                 }
               ]
@@ -1634,9 +1634,9 @@
       "identity": {
         "type": "UserAssigned",
         "userAssignedIdentities": {
-          "/subscriptions/5a57980f-c6bb-4cd7-8b26-6d258bae1d71/resourceGroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/gen-test-aks-001-agentpool": {},
-          "/subscriptions/5a57980f-c6bb-4cd7-8b26-6d258bae1d71/resourcegroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/azurepolicy-gen-test-aks-001": {},
-          "/subscriptions/5a57980f-c6bb-4cd7-8b26-6d258bae1d71/resourcegroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/ext-2c26b4151b0060abd40059868bf6e436-gen-test-aks-001": {}
+          "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/gen-test-aks-001-agentpool": {},
+          "/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/azurepolicy-gen-test-aks-001": {},
+          "/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/ext-2c26b4151b0060abd40059868bf6e436-gen-test-aks-001": {}
         }
       },
       "location": "[parameters('location')]",
@@ -1699,7 +1699,7 @@
             "ssh": {
               "publicKeys": [
                 {
-                  "keyData": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ1nXvH4bu7Uq/mcDFIbH5RSkvN7MpLcLtbyqZWDRRygu5o1nbl+TwRntdW+/xCXvKxQseDeORX2zX1P0Mo1H854nAgeygdXVVuAZTOVqTVOWIYTg9Js8kFFAoJmkY4eYUAC+I+J1DyO2Rns1Hs1EjVbJGScviy+cXqX+kEwp70Rr7x8+eeGyxVfG8G+B6s4TvcAPUtIb4P9D9UuHv++T/kRDEcU4+Jl8aN6e7vX8Xe6EZH58Zgmnzd+eTO0ciHQV1QDmF69eLmnccxPuj2JmQOtutXXL0C+az7q/eTGvZzLnfdkDQsMhbcb/OuBLDwaUCAmIHpbAkD8omaju4Bb/1",
+                  "keyData": "REDACTED-SSH-PUBLIC-KEY",
                   "path": "/home/azureuser/.ssh/authorized_keys"
                 }
               ]
@@ -2025,9 +2025,9 @@
       "identity": {
         "type": "UserAssigned",
         "userAssignedIdentities": {
-          "/subscriptions/5a57980f-c6bb-4cd7-8b26-6d258bae1d71/resourceGroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/gen-test-aks-001-agentpool": {},
-          "/subscriptions/5a57980f-c6bb-4cd7-8b26-6d258bae1d71/resourcegroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/azurepolicy-gen-test-aks-001": {},
-          "/subscriptions/5a57980f-c6bb-4cd7-8b26-6d258bae1d71/resourcegroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/ext-2c26b4151b0060abd40059868bf6e436-gen-test-aks-001": {}
+          "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/gen-test-aks-001-agentpool": {},
+          "/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/azurepolicy-gen-test-aks-001": {},
+          "/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/MC_gin-test-001_gen-test-aks-001_eastus2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/ext-2c26b4151b0060abd40059868bf6e436-gen-test-aks-001": {}
         }
       },
       "location": "[parameters('location')]",
@@ -2090,7 +2090,7 @@
             "ssh": {
               "publicKeys": [
                 {
-                  "keyData": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ1nXvH4bu7Uq/mcDFIbH5RSkvN7MpLcLtbyqZWDRRygu5o1nbl+TwRntdW+/xCXvKxQseDeORX2zX1P0Mo1H854nAgeygdXVVuAZTOVqTVOWIYTg9Js8kFFAoJmkY4eYUAC+I+J1DyO2Rns1Hs1EjVbJGScviy+cXqX+kEwp70Rr7x8+eeGyxVfG8G+B6s4TvcAPUtIb4P9D9UuHv++T/kRDEcU4+Jl8aN6e7vX8Xe6EZH58Zgmnzd+eTO0ciHQV1QDmF69eLmnccxPuj2JmQOtutXXL0C+az7q/eTGvZzLnfdkDQsMhbcb/OuBLDwaUCAmIHpbAkD8omaju4Bb/1",
+                  "keyData": "REDACTED-SSH-PUBLIC-KEY",
                   "path": "/home/azureuser/.ssh/authorized_keys"
                 }
               ]

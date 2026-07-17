@@ -19,7 +19,7 @@ resource group **and** its AKS-managed node resource group
 
 | Fact | Value |
 | --- | --- |
-| Subscription | `FRS.DEV` — `5a57980f-c6bb-4cd7-8b26-6d258bae1d71` |
+| Subscription | `<your-subscription-name>` — `<your-subscription-id>` |
 | Primary resource group | `gin-test-001` (RG metadata location **eastus**) |
 | AKS node resource group | `MC_gin-test-001_gen-test-aks-001_eastus2` (**eastus2**) |
 | ACR | `gentestfrs001` → `gentestfrs001.azurecr.io` (Standard, admin enabled, **eastus**) |
@@ -34,7 +34,7 @@ template edits required.
 
 | File | What it is |
 | --- | --- |
-| [azure/arm/main.template.json](../arm/main.template.json) | Parameterized ARM template — ACR + AKS + system node pool + ACR scope maps. **Deployable** (server-side `az deployment group validate` → `Succeeded`). |
+| [azure/arm/main.template.json](../arm/main.template.json) | Parameterized ARM template — ACR + AKS + system node pool + ACR scope maps. **Deployable** (validated server-side; provide your own `sshPublicKey`). |
 | [azure/arm/main.parameters.json](../arm/main.parameters.json) | Parameter values for `main.template.json` (defaults = the live `gin-test-001` config). |
 | [azure/arm/mc-group.template.json](../arm/mc-group.template.json) | Parameterized ARM template for the `MC_...` node group (VMSS, VNet, NSG, LB, public IPs, identities, storage, disks). **Reference only** — AKS owns this group. |
 | [azure/arm/mc-group.parameters.json](../arm/mc-group.parameters.json) | Parameter values for `mc-group.template.json`. |
@@ -50,8 +50,8 @@ template edits required.
 | `kubernetesVersion` | `1.35` | Control-plane version |
 | `nodeVmSize` | `Standard_D4as_v4` | System node pool VM size |
 | `nodeCount` | `3` | System node pool node count |
-| `dnsPrefix` | `gen-test-a-gin-test-001-5a5798` | API server DNS prefix |
-| `sshPublicKey` | *(captured)* | Linux node SSH public key |
+| `dnsPrefix` | `aks-cluster` | API server DNS prefix |
+| `sshPublicKey` | *(required — no default; provide your own)* | Linux node SSH public key |
 
 `nodeResourceGroup` is **computed** — `MC_<resourceGroup().name>_<aksClusterName>_<aksLocation>`
 — so the `MC_...` name tracks the parameters automatically.
@@ -128,7 +128,7 @@ created automatically by Step 3 — you never author it.
 ### Step 0 — Variables & context
 
 ```bash
-SUB=5a57980f-c6bb-4cd7-8b26-6d258bae1d71   # FRS.DEV
+SUB=<your-subscription-id>   # your subscription
 RG=gin-test-001
 ACR=gentestfrs001
 AKS=gen-test-aks-001
