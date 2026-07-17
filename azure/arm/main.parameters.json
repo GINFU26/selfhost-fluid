@@ -3,13 +3,13 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "acrName": {
-      "value": "gentestfrs001"
+      "value": "youracrname"
     },
     "acrLocation": {
       "value": "eastus"
     },
     "aksClusterName": {
-      "value": "gen-test-aks-001"
+      "value": "your-aks-cluster"
     },
     "aksLocation": {
       "value": "eastus2"

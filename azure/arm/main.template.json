@@ -4,7 +4,7 @@
   "parameters": {
     "acrName": {
       "type": "string",
-      "defaultValue": "gentestfrs001",
+      "defaultValue": "youracrname",
       "metadata": {
         "description": "Container registry name (globally unique)."
       }
@@ -18,7 +18,7 @@
     },
     "aksClusterName": {
       "type": "string",
-      "defaultValue": "gen-test-aks-001",
+      "defaultValue": "your-aks-cluster",
       "metadata": {
         "description": "AKS managed cluster name."
       }
