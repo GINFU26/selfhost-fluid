@@ -270,7 +270,7 @@ validate and get operationally ready, then migrate and go live when you are read
 **Which document, when.** This section is the adoption narrative; the operational detail lives in
 dedicated docs, each with one job:
 
-| To… | Use | For |
+| Goal | Document | Audience |
 | --- | --- | --- |
 | Follow the whole adoption path | this section (§5) | reader / customer |
 | Bring the stack up step by step (local → Azure) with VERIFY gates | [AGENTS.md](./AGENTS.md) | operator or AI agent |
