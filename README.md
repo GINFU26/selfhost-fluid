@@ -35,7 +35,7 @@
 | --- | --- |
 | Detailed service topology, data flow, and slim alternative | [ARCHITECTURE.md](./ARCHITECTURE.md) |
 | Recorded tests, provenance, failures, and evidence boundaries | [VALIDATION.md](./VALIDATION.md) |
-| Local deployment with ordered VERIFY gates | [AGENTS.md](./AGENTS.md) |
+| Step-by-step bring-up runbook (local + Azure) with VERIFY gates | [AGENTS.md](./AGENTS.md) |
 | Azure deployment commands, verification, and cleanup | [azure/README.md](./azure/README.md) |
 | Final team decisions and production acceptance criteria | [HANDOFF.md](./HANDOFF.md) |
 | Token prototype and production identity boundary | [token-function/README.md](./token-function/README.md) |
@@ -134,8 +134,8 @@ are documented in [ARCHITECTURE.md](./ARCHITECTURE.md).
 ### 2.3 Delivered artifacts
 
 This repository contains the local Compose stacks, source-build automation, smoke tests, Azure
-manifests, Routerlicious Helm values, architecture and validation records, and phase-by-phase
-operator runbooks.
+manifests, parameterized ARM templates and a deployment capture, Routerlicious Helm values,
+architecture and validation records, and phase-by-phase operator runbooks.
 
 ---
 
@@ -267,6 +267,20 @@ production token provider, and remapped document references. First evaluate the 
 (5.1); then follow the production adoption journey (5.2): plan and design, build and deploy,
 validate and get operationally ready, then migrate and go live when you are ready.
 
+**Which document, when.** This section is the adoption narrative; the operational detail lives in
+dedicated docs, each with one job:
+
+| To… | Use | For |
+| --- | --- | --- |
+| Follow the whole adoption path | this section (§5) | reader / customer |
+| Bring the stack up step by step (local → Azure) with VERIFY gates | [AGENTS.md](./AGENTS.md) | operator or AI agent |
+| Run the Azure deploy — exact commands, verification, cleanup | [azure/README.md](./azure/README.md) | Azure operator |
+| Reproduce the Azure reference deployment from parameterized ARM | [azure/deployment/skill.md](./azure/deployment/skill.md) + [azure/arm/](./azure/arm) | AI / engineer |
+| See what was proven and its boundaries / open production decisions | [VALIDATION.md](./VALIDATION.md) / [HANDOFF.md](./HANDOFF.md) | reviewer / receiving team |
+
+In short: §5 narrates, [AGENTS.md](./AGENTS.md) orchestrates the bring-up, and
+[azure/README.md](./azure/README.md) is the command authority.
+
 ### 5.1 Evaluate the service locally
 
 **Prerequisites:** Docker, git, a running Docker daemon, and free host ports. From the repository
@@ -322,7 +336,8 @@ migration and go-live, which you schedule when you are ready.
   immutable routerlicious/historian/gitrest images, and publish them to your ACR.
 5. **Deploy the Azure service** — create AKS, deploy Redpanda and its topics, deploy the storage
   backends, install Routerlicious, and expose alfred, nexus, and historian behind your DNS and TLS
-  boundary.
+  boundary. Deploy from the parameterized ARM templates ([azure/arm/](./azure/arm), following the
+  [deployment capture](./azure/deployment/skill.md)), or hand-run the [Azure runbook](./azure/README.md).
 6. **Integrate identity** — connect your identity provider to a trusted backend that authorizes
   tenant/document access and issues short-lived Routerlicious JWTs without exposing the tenant
   signing key.
@@ -419,7 +434,7 @@ team to own and complete before the service goes to production for a customer:
 
 | Area | Required production outcome |
 | --- | --- |
-| **Security and identity** | HTTPS/WSS and DNS; a trusted production token service (the [token Azure Function](./token-function/README.md) prototype is handed to the team to build on); protected and rotatable tenant keys; backend access controls |
+| **Security and identity** | HTTPS/WSS and DNS; a trusted production token service (the [token Azure Function](./token-function/README.md) prototype is handed to the team to build on); the production authentication approach is still under design; protected and rotatable tenant keys; backend access controls |
 | **Summary correctness** | Resolve the observed incremental-summary 404 and prove bounded operation-log growth |
 | **Reliability** | Select supported HA topologies for Redpanda, MongoDB, Redis, and the application tier; test restart, failover, backup, and restore |
 | **Storage** | Accept and govern Azure Files, or provide and validate an `IFileSystemManager` adapter for the customer's preferred backend (e.g., Azure Blob) handed to the team to build; define independent lifecycle and retention ownership |
